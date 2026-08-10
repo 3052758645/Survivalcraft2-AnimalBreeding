@@ -785,6 +785,25 @@ namespace Game
             }
         }
 
+        /// <summary>
+        /// 直接遍历所有被追踪的动物(渲染器用，避免每帧 ToList 分配 GC 压力)。
+        /// 在锁内逐个回调，回调中禁止修改 s_states(否则抛 InvalidOperationException)。
+        /// 回调异常由调用方处理(本方法不吞异常)。
+        /// </summary>
+        public static void ForEachTracked(Action<Entity, BreedingState> callback)
+        {
+            if (callback == null) return;
+            // 锁内遍历：渲染线程与 OnEntityAdd/Remove 互斥，保证遍历期间集合不被修改。
+            // 注意：回调内不要做耗时操作(否则会阻塞实体添加/移除)。
+            lock (s_states)
+            {
+                foreach (KeyValuePair<Entity, BreedingState> kv in s_states)
+                {
+                    callback(kv.Key, kv.Value);
+                }
+            }
+        }
+
         /// <summary>查询某实体的繁殖状态(调试/外部展示用)。无则返回 null。</summary>
         public static BreedingState GetState(Entity entity)
         {
