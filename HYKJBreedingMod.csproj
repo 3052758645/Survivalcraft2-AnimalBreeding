@@ -11,6 +11,7 @@
     <Compile Update="Breeding/BreedingConfig.cs" />
     <Compile Update="Breeding/BreedingState.cs" />
     <Compile Update="Breeding/SubsystemBreeding.cs" />
+    <Compile Update="Breeding/SubsystemBreedingRenderer.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Engine" HintPath="Quoted/Engine.dll" />

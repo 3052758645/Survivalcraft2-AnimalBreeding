@@ -50,6 +50,15 @@ namespace HYKJ.Breeding
         static Random s_random = new();
         static bool s_initialized;
 
+        /// <summary>渲染器是否已注册(由 BreedingModLoader.OnProjectLoaded 设置)。仅用于调试日志节流。</summary>
+        public static bool RendererRegistered;
+
+        /// <summary>渲染心跳节流计数器(每 300 帧输出一次)。</summary>
+        static long s_debugFrameCounter;
+
+        /// <summary>攻击力修正命中节流计数器(每 200 次命中输出一次)。</summary>
+        static long s_debugHitCounter;
+
         /// <summary>怀孕持续天数(游戏天)。母体交配成功后 GestationDays 天分娩。</summary>
         const float kGestationDays = 1.0f;
 
@@ -62,6 +71,7 @@ namespace HYKJ.Breeding
         /// </summary>
         public static void Initialize(Project project)
         {
+            Log.Information("[HYKJ.Breeding] Initialize 开始");
             s_project = project;
             s_creatureSpawn = project.FindSubsystem<SubsystemCreatureSpawn>(true);
             s_bodies = project.FindSubsystem<SubsystemBodies>(true);
@@ -70,6 +80,7 @@ namespace HYKJ.Breeding
             s_timeOfDay = project.FindSubsystem<SubsystemTimeOfDay>(true);
             s_gameInfo = project.FindSubsystem<SubsystemGameInfo>(true);
             s_time = project.FindSubsystem<SubsystemTime>(true);
+            Log.Information($"[HYKJ.Breeding] 子系统已缓存: creatureSpawn={s_creatureSpawn!=null}, bodies={s_bodies!=null}, seasons={s_seasons!=null}, terrain={s_terrain!=null}, timeOfDay={s_timeOfDay!=null}, time={s_time!=null}");
 
             // 加载配置(若已加载则刷新)。同时把 NestBlocks 字符串解析为方块索引。
             BreedingConfig.Load();
@@ -90,17 +101,23 @@ namespace HYKJ.Breeding
                             if (idx > 0)
                             {
                                 kv.Value.NestBlockIndices.Add(idx);
+                                Log.Information($"[HYKJ.Breeding]   物种 {kv.Key} 巢穴方块 {blockName} → 索引 {idx}");
+                            }
+                            else
+                            {
+                                Log.Warning($"[HYKJ.Breeding]   物种 {kv.Key} 巢穴方块 {blockName} 未找到");
                             }
                         }
                     }
                 }
-                Log.Information($"[HYKJ.Breeding] 初始化完成，追踪物种数={cfg.Species.Count}");
+                Log.Information($"[HYKJ.Breeding] 初始化完成，追踪物种数={cfg.Species.Count}，GestationDays={kGestationDays}，BreedingCheckInterval={kBreedingCheckIntervalSeconds}s");
             }
             else
             {
                 Log.Warning("[HYKJ.Breeding] 配置禁用或加载失败，繁殖系统不生效");
             }
             s_initialized = true;
+            Log.Information("[HYKJ.Breeding] Initialize 完成");
         }
 
         /// <summary>按方块显示名查找方块索引。用于 NestBlocks 配置项。找不到返回 -1。</summary>
@@ -146,7 +163,11 @@ namespace HYKJ.Breeding
             if (species == null) return;
 
             // 已存在状态(从存档恢复时 OnReadSpawnData 会先于 OnEntityAdd 吗？保险起见先查)
-            if (s_states.ContainsKey(entity)) return;
+            if (s_states.ContainsKey(entity))
+            {
+                Log.Information($"[HYKJ.Breeding] OnEntityAdd 已存在状态: id={entity.Id}, template={templateName}");
+                return;
+            }
 
             // 自然生成的成体：默认成年；性别随机；父/母 Id = 0
             BreedingState state = new()
@@ -161,16 +182,21 @@ namespace HYKJ.Breeding
             };
             s_states[entity] = state;
             s_idToEntity[entity.Id] = entity;
+            Log.Information($"[HYKJ.Breeding] OnEntityAdd 注册新个体: id={entity.Id}, template={templateName}, gender={state.GetGenderDisplayName()}, stage={state.GetStageDisplayName()}, day={s_timeOfDay.Day}, totalTracked={s_states.Count}");
         }
 
         /// <summary>由 HYKJModLoader.OnEntityRemove 调用。清理状态。</summary>
         public static void OnEntityRemove(Entity entity)
         {
             if (entity == null) return;
-            s_states.Remove(entity);
+            bool removed = s_states.Remove(entity);
             // idToEntity 不主动清理(键值对少量，且若实体被回收后 Id 可能被复用)；
             // 但下次 OnEntityAdd 同 Id 时会覆盖。这里也清一下避免脏数据。
             s_idToEntity.Remove(entity.Id);
+            if (removed)
+            {
+                Log.Information($"[HYKJ.Breeding] OnEntityRemove 清理: id={entity.Id}, totalTracked={s_states.Count}");
+            }
         }
 
         /// <summary>由 HYKJModLoader.OnReadSpawnData 调用。从 SpawnEntityData.Data 反序列化繁殖状态。</summary>
@@ -187,6 +213,7 @@ namespace HYKJ.Breeding
             if (state == null)
             {
                 // 没有保存的状态(老存档/未保存过)，让 OnEntityAdd 走默认初始化
+                Log.Information($"[HYKJ.Breeding] OnReadSpawnData 无保存状态(走默认初始化): id={entity.Id}, template={templateName}");
                 return;
             }
             // 校验：模板名要一致(防止配置变更)
@@ -204,6 +231,7 @@ namespace HYKJ.Breeding
             {
                 ApplyCubBoxSize(entity, cfg.GetSpecies(templateName));
             }
+            Log.Information($"[HYKJ.Breeding] OnReadSpawnData 恢复状态: id={entity.Id}, template={templateName}, gender={state.GetGenderDisplayName()}, stage={state.GetStageDisplayName()}, birthDay={state.BirthDay}, dueDay={state.PregnancyDueDay}");
         }
 
         /// <summary>由 HYKJModLoader.OnSaveSpawnData 调用。把繁殖状态序列化进 SpawnEntityData.Data。</summary>
@@ -280,7 +308,7 @@ namespace HYKJ.Breeding
                 state.Stage = GrowthStage.Adult;
                 state.AdultDay = currentDay;
                 ApplyAdultBoxSize(entity, species);
-                Log.Information($"[HYKJ.Breeding] 幼崽进阶成年: template={state.TemplateName}, age={ageDays}天");
+                Log.Information($"[HYKJ.Breeding] 幼崽进阶成年: id={entity.Id}, template={state.TemplateName}, age={ageDays:F2}天, cubDuration={species.CubDurationDays}天");
             }
         }
 
@@ -615,6 +643,12 @@ namespace HYKJ.Breeding
             }
 
             attackPower *= stageFactor * estrusFactor * lowHealthFactor;
+
+            // 节流日志：每 200 次命中输出一次攻击力修正详情
+            if (s_debugHitCounter++ % 200 == 0)
+            {
+                Log.Information($"[HYKJ.Breeding] OnMinerHit 攻击力修正: id={attacker.Id}, template={state.TemplateName}, stage={state.GetStageDisplayName()}, estrus={state.IsInEstrus}, factor=stage×{stageFactor}*estrus×{estrusFactor}*lowHp×{lowHealthFactor}={stageFactor * estrusFactor * lowHealthFactor}");
+            }
         }
 
         /// <summary>
@@ -722,10 +756,47 @@ namespace HYKJ.Breeding
         /// <summary>当前追踪的动物数量(调试用)。</summary>
         public static int TrackedCount => s_states.Count;
 
+        /// <summary>繁殖系统是否已初始化并启用(渲染器在 Draw 入口检查)。</summary>
+        public static bool Initialized => s_initialized && BreedingConfig.Current?.Enabled == true;
+
+        /// <summary>当前游戏天(SubsystemTimeOfDay.Day)。渲染器计算成长进度时使用。</summary>
+        public static double GetCurrentDay()
+        {
+            return s_timeOfDay != null ? s_timeOfDay.Day : 0.0;
+        }
+
+        /// <summary>
+        /// 枚举所有被追踪的动物与其繁殖状态(渲染器遍历用)。
+        /// 返回内部 Dictionary 的快照副本，避免渲染过程中集合被修改导致 InvalidOperationException。
+        /// </summary>
+        public static List<KeyValuePair<Entity, BreedingState>> GetAllTracked()
+        {
+            // ToList 触发一次浅拷贝；Entity 与 BreedingState 均为引用类型，渲染期间状态字段读取安全。
+            // 若状态被并发修改(例如 OnEntityRemove)，最多读到旧值，不会抛迭代异常。
+            lock (s_states)
+            {
+                return new List<KeyValuePair<Entity, BreedingState>>(s_states);
+            }
+        }
+
         /// <summary>查询某实体的繁殖状态(调试/外部展示用)。无则返回 null。</summary>
         public static BreedingState GetState(Entity entity)
         {
             return entity != null && s_states.TryGetValue(entity, out BreedingState s) ? s : null;
+        }
+
+        /// <summary>
+        /// 渲染器每帧调用一次的轻量调试日志(每 300 帧输出一行，避免刷屏)。
+        /// 仅在调用方传入 drawn > 0 时才推进计数器。
+        /// </summary>
+        public static void LogRenderTick(int drawn)
+        {
+            if (drawn <= 0) return;
+            long c = System.Threading.Interlocked.Increment(ref s_debugFrameCounter);
+            if (c % 300 == 0)
+            {
+                Log.Information($"[HYKJ.Breeding] 渲染心跳: drawnThisFrame={drawn}, totalTracked={s_states.Count}, day={s_timeOfDay?.Day ?? 0}");
+            }
         }
     }
 }
