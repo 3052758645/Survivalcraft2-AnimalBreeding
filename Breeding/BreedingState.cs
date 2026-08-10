@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -101,6 +101,42 @@ namespace Game
             if (Gender == BreedingGender.Female && PregnancyDueDay > 0.0) return false;
             if (LastBirthDay > 0.0 && currentDay - LastBirthDay < cooldownDays) return false;
             return true;
+        }
+        
+        // ==================== 渲染辅助查询 ====================
+
+        /// <summary>成长进度(0~1)。幼崽期：0~1 表示从出生到成年的进度；成年期恒为 1。</summary>
+        public float GetGrowthProgress(double currentDay, float cubDurationDays)
+        {
+            if (IsAdult) return 1f;
+            if (cubDurationDays <= 0f) return 1f;
+            double age = currentDay - BirthDay;
+            return Math.Clamp((float)(age / cubDurationDays), 0f, 1f);
+        }
+
+        /// <summary>成长阶段的中文显示名。</summary>
+        public string GetStageDisplayName()
+        {
+            return Stage == GrowthStage.Cub ? "幼崽期" : "成年期";
+        }
+
+        /// <summary>性别的中文显示名。</summary>
+        public string GetGenderDisplayName()
+        {
+            return Gender == BreedingGender.Male ? "♂公" : "♀母";
+        }
+
+        /// <summary>繁殖状态简述(用于渲染显示)。例如："发情中" / "怀孕中" / "可交配" / "未在季"。</summary>
+        public string GetBreedingStatus(double currentDay)
+        {
+            if (Gender == BreedingGender.Female && PregnancyDueDay > 0.0)
+            {
+                double remain = PregnancyDueDay - currentDay;
+                return remain > 0 ? $"怀孕中({remain:F1}天)" : "即将分娩";
+            }
+            if (IsInEstrus) return "发情中";
+            if (IsAdult) return "未在季";
+            return "成长中";
         }
 
         // ==================== JSON 持久化 ====================

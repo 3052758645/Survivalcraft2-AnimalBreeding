@@ -12,6 +12,8 @@ namespace Game
     /// </summary>
     public class BreedingModLoader : ModLoader
     {
+        /// <summary>繁殖状态浮动文字渲染器(单例)。在 OnProjectLoaded 中创建并注册到 SubsystemDrawing。</summary>
+        SubsystemBreedingRenderer m_renderer;
         public override void __ModInitialize()
         {
             // 动物繁殖系统相关钩子：实体生命周期、存档读写、每帧更新、攻击力修正
@@ -26,10 +28,35 @@ namespace Game
             Log.Information("[BreedingMod] 动物繁殖系统模组初始化");
         }
 
-        /// <summary>当 Project 加载完成时执行。繁殖系统在此缓存子系统引用 + 加载配置。</summary>
+        /// <summary>当 Project 加载完成时执行。繁殖系统在此缓存子系统引用 + 加载配置 + 注册渲染器。</summary>
         public override void OnProjectLoaded(Project project)
         {
             SubsystemBreeding.Initialize(project);
+
+            // 注册繁殖状态浮动文字渲染器(IDrawable)
+            // 通过 SubsystemDrawing.AddDrawable 把它加入绘制队列；
+            // SubsystemDrawing.Load 会自动注册 Project 中所有 IDrawable 子系统，
+            // 但本渲染器不是 Subsystem，需要手动 AddDrawable。
+            try
+            {
+                SubsystemDrawing drawing = project.FindSubsystem<SubsystemDrawing>(false);
+                if (drawing == null)
+                {
+                    Log.Warning("[HYKJ.BreedingMod] SubsystemDrawing 未就绪，渲染器延迟到下次 OnProjectLoaded 再注册");
+                    return;
+                }
+                if (m_renderer == null)
+                {
+                    m_renderer = new SubsystemBreedingRenderer();
+                }
+                drawing.AddDrawable(m_renderer);
+                SubsystemBreeding.RendererRegistered = true;
+                Log.Information("[HYKJ.BreedingMod] 繁殖状态浮动文字渲染器已注册到 SubsystemDrawing");
+            }
+            catch (Exception e)
+            {
+                Log.Warning("[HYKJ.BreedingMod] 注册渲染器失败: " + e.Message);
+            }
         }
 
         /// <summary>实体被添加时执行。繁殖系统在此注册可繁殖生物的状态。</summary>
