@@ -4,8 +4,8 @@
    "ApiVersion": "1.9",
    "Description": "为 Survivalcraft 2 加入完整的动物繁殖系统：季节开关、怀孕成功率三选一检测、成长阶段、攻击力动态调整、近亲与重复配对防护。所有属性以配置文件方式存在，可运行时调整。",
    "ScVersion": "2.4.0.0",
-   "Link": "https://gitee.com/YonRen/Survivalcraft2-HYKJ",
-   "Author": "荒野科技制作组",
-   "PackageName": "Survivalcraft.HYKJBreeding",
+   "Link": "https://gitee.com/YonRen/Survivalcraft2-AnimalBreeding",
+   "Author": "永仁、蚁拳王",
+   "PackageName": "Survivalcraft.AnimalBreeding",
    "Dependencies": []
 }

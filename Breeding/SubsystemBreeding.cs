@@ -4,7 +4,7 @@ using Engine;
 using GameEntitySystem;
 using Game;
 
-namespace HYKJ.Breeding
+namespace Game
 {
     /// <summary>
     /// 动物繁殖系统核心管理器。
@@ -94,11 +94,11 @@ namespace HYKJ.Breeding
                         }
                     }
                 }
-                Log.Information($"[HYKJ.Breeding] 初始化完成，追踪物种数={cfg.Species.Count}");
+                Log.Information($"[Breeding] 初始化完成，追踪物种数={cfg.Species.Count}");
             }
             else
             {
-                Log.Warning("[HYKJ.Breeding] 配置禁用或加载失败，繁殖系统不生效");
+                Log.Warning("[Breeding] 配置禁用或加载失败，繁殖系统不生效");
             }
             s_initialized = true;
         }
@@ -121,7 +121,7 @@ namespace HYKJ.Breeding
             }
             catch (Exception e)
             {
-                Log.Warning($"[HYKJ.Breeding] 查找方块 {blockName} 失败: {e.Message}");
+                Log.Warning($"[Breeding] 查找方块 {blockName} 失败: {e.Message}");
             }
             return -1;
         }
@@ -192,7 +192,7 @@ namespace HYKJ.Breeding
             // 校验：模板名要一致(防止配置变更)
             if (!string.Equals(state.TemplateName, templateName, StringComparison.Ordinal))
             {
-                Log.Warning($"[HYKJ.Breeding] 状态模板名不匹配: state={state.TemplateName}, entity={templateName}，丢弃旧状态");
+                Log.Warning($"[Breeding] 状态模板名不匹配: state={state.TemplateName}, entity={templateName}，丢弃旧状态");
                 return;
             }
             // 已经在 s_states 中的话(OnEntityAdd 先跑了)，覆盖
@@ -267,8 +267,8 @@ namespace HYKJ.Breeding
                     ComponentHealth health = entity.FindComponent<ComponentHealth>();
                     if (health != null)
                     {
-                        health.Injure(2.0f, null, true, "HYKJ.Breeding.CubPerished");
-                        Log.Information($"[HYKJ.Breeding] 幼崽夭折: template={state.TemplateName}, age={ageDays}天");
+                        health.Injure(2.0f, null, true, "Breeding.CubPerished");
+                        Log.Information($"[Breeding] 幼崽夭折: template={state.TemplateName}, age={ageDays}天");
                     }
                     return;
                 }
@@ -280,7 +280,7 @@ namespace HYKJ.Breeding
                 state.Stage = GrowthStage.Adult;
                 state.AdultDay = currentDay;
                 ApplyAdultBoxSize(entity, species);
-                Log.Information($"[HYKJ.Breeding] 幼崽进阶成年: template={state.TemplateName}, age={ageDays}天");
+                Log.Information($"[Breeding] 幼崽进阶成年: template={state.TemplateName}, age={ageDays}天");
             }
         }
 
@@ -384,14 +384,14 @@ namespace HYKJ.Breeding
             // 7. 近亲检测(只追溯父母双方 ID)
             if (cfg.InbreedingEnabled && IsInbreeding(state, mate))
             {
-                Log.Information("[HYKJ.Breeding] 交配失败(近亲)");
+                Log.Information("[Breeding] 交配失败(近亲)");
                 return;
             }
 
             // 8. 重复配对检测
             if (state.IsRecentMate(mate.Id))
             {
-                Log.Information("[HYKJ.Breeding] 交配失败(它们腻了)");
+                Log.Information("[Breeding] 交配失败(它们腻了)");
                 return;
             }
 
@@ -404,7 +404,7 @@ namespace HYKJ.Breeding
             // 双向记录(公体也记一下)
             mateState?.RecordMate(entity.Id, cfg.RecentMatesLimit);
 
-            Log.Information($"[HYKJ.Breeding] 交配成功: mother={state.TemplateName}#{entity.Id}, father={mateState?.TemplateName}#{mate.Id}, dueDay={state.PregnancyDueDay}");
+            Log.Information($"[Breeding] 交配成功: mother={state.TemplateName}#{entity.Id}, father={mateState?.TemplateName}#{mate.Id}, dueDay={state.PregnancyDueDay}");
         }
 
         /// <summary>查找附近同物种成年公体。半径用 DensityRadius。</summary>
@@ -529,7 +529,7 @@ namespace HYKJ.Breeding
             string cubTemplate = species.CubTemplate;
             if (!string.IsNullOrEmpty(cubTemplate) && !TemplateExists(cubTemplate))
             {
-                Log.Warning($"[HYKJ.Breeding] 幼崽模板 {cubTemplate} 不存在，降级使用母体模板 {motherState.TemplateName}");
+                Log.Warning($"[Breeding] 幼崽模板 {cubTemplate} 不存在，降级使用母体模板 {motherState.TemplateName}");
                 cubTemplate = motherState.TemplateName;
             }
             if (string.IsNullOrEmpty(cubTemplate)) cubTemplate = motherState.TemplateName;
@@ -543,7 +543,7 @@ namespace HYKJ.Breeding
             Entity cub = s_creatureSpawn.SpawnCreature(cubTemplate, spawnPos, false);
             if (cub == null)
             {
-                Log.Warning("[HYKJ.Breeding] 幼崽生成失败");
+                Log.Warning("[Breeding] 幼崽生成失败");
                 return;
             }
 
@@ -564,7 +564,7 @@ namespace HYKJ.Breeding
                 // 应用幼崽碰撞盒
                 ApplyCubBoxSize(cub, species);
             }
-            Log.Information($"[HYKJ.Breeding] 分娩成功: mother={motherState.TemplateName}#{mother.Id}, cub={cubTemplate}#{cub.Id}");
+            Log.Information($"[Breeding] 分娩成功: mother={motherState.TemplateName}#{mother.Id}, cub={cubTemplate}#{cub.Id}");
         }
 
         /// <summary>检查某模板名是否在数据库中存在。</summary>
@@ -647,7 +647,7 @@ namespace HYKJ.Breeding
             }
             catch (Exception e)
             {
-                Log.Warning("[HYKJ.Breeding] ApplyChaseRangeFactor 失败: " + e.Message);
+                Log.Warning("[Breeding] ApplyChaseRangeFactor 失败: " + e.Message);
             }
         }
 

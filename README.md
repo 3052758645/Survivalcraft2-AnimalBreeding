@@ -1,6 +1,6 @@
-# 动物繁殖系统模组 (Survivalcraft.HYKJBreeding)
+# 动物繁殖系统模组 (Breeding)
 
-为 Survivalcraft 2 (2.4.0.0) 加入完整的动物繁殖系统的独立模组。从荒野科技主模组中提取，无任何依赖。
+为 Survivalcraft 2 (2.4.0.0) 加入完整的动物繁殖系统的独立模组。
 
 ## 功能
 
@@ -65,14 +65,3 @@
 3. 等待约 30 秒，查看日志应出现 `[HYKJ.Breeding] 交配成功`
 4. 等 1 游戏天后出现 `分娩成功`
 5. 等 3 游戏天幼崽进阶成年
-
-## 日志位置
-
-- Android: `Android/data/com.candyrufusgames.survivalcraft2/files/Logs/`
-- PC: 游戏目录下的 `Logs/`
-
-所有 `[HYKJ.Breeding]` 开头的行都是本系统输出。
-
-## 来源
-
-从荒野科技主模组 (https://gitee.com/YonRen/Survivalcraft2-HYKJ) 0.1 分支提取，独立成包。

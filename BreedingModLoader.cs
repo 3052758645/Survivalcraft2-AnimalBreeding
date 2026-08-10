@@ -2,9 +2,8 @@ using System;
 using Engine;
 using GameEntitySystem;
 using Game;
-using HYKJ.Breeding;
 
-namespace HYKJ.BreedingMod
+namespace Game
 {
     /// <summary>
     /// 动物繁殖系统独立模组的加载入口。
@@ -24,7 +23,7 @@ namespace HYKJ.BreedingMod
             ModsManager.RegisterHook("OnFactorsUpdate", this);
             ModsManager.RegisterHook("OnMinerHit", this);
 
-            Log.Information("[HYKJ.BreedingMod] 动物繁殖系统模组初始化");
+            Log.Information("[BreedingMod] 动物繁殖系统模组初始化");
         }
 
         /// <summary>当 Project 加载完成时执行。繁殖系统在此缓存子系统引用 + 加载配置。</summary>

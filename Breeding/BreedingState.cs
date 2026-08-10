@@ -6,7 +6,7 @@ using GameEntitySystem;
 using Engine;
 using Game;
 
-namespace HYKJ.Breeding
+namespace Game
 {
     /// <summary>
     /// 生物性别。公与母的判定用于交配；其余属性(攻击力等)与性别无关，由成长阶段与状态决定。
@@ -114,7 +114,7 @@ namespace HYKJ.Breeding
             }
             catch (Exception e)
             {
-                Log.Warning("[HYKJ.Breeding] 状态序列化失败: " + e.Message);
+                Log.Warning("[Breeding] 状态序列化失败: " + e.Message);
                 return string.Empty;
             }
         }
@@ -130,7 +130,7 @@ namespace HYKJ.Breeding
             }
             catch (Exception e)
             {
-                Log.Warning("[HYKJ.Breeding] 状态反序列化失败: " + e.Message);
+                Log.Warning("[Breeding] 状态反序列化失败: " + e.Message);
                 return null;
             }
         }

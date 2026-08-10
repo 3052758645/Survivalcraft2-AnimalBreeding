@@ -5,7 +5,7 @@ using System.Text.Json.Serialization;
 using Engine;
 using Game;
 
-namespace HYKJ.Breeding
+namespace Game
 {
     /// <summary>
     /// 动物繁殖系统的配置入口。对应 MOD/Assets/BreedingConfig.json。
@@ -86,7 +86,7 @@ namespace HYKJ.Breeding
                 string json = ContentManager.Get<string>("BreedingConfig", ".json");
                 if (string.IsNullOrEmpty(json))
                 {
-                    Log.Warning("[HYKJ.Breeding] BreedingConfig.json 内容为空，繁殖系统将禁用");
+                    Log.Warning("[Breeding] BreedingConfig.json 内容为空，繁殖系统将禁用");
                     Current = new BreedingConfig { Enabled = false };
                     return Current;
                 }
@@ -104,12 +104,12 @@ namespace HYKJ.Breeding
                     kv.Value?.Normalize();
                 }
                 Current = cfg;
-                Log.Information($"[HYKJ.Breeding] 配置加载完成，物种数={cfg.Species.Count}，Enabled={cfg.Enabled}");
+                Log.Information($"[Breeding] 配置加载完成，物种数={cfg.Species.Count}，Enabled={cfg.Enabled}");
                 return Current;
             }
             catch (Exception e)
             {
-                Log.Warning("[HYKJ.Breeding] 配置加载失败: " + e.Message);
+                Log.Warning("[Breeding] 配置加载失败: " + e.Message);
                 Current = new BreedingConfig { Enabled = false };
                 return Current;
             }
@@ -173,7 +173,7 @@ namespace HYKJ.Breeding
                 }
                 else
                 {
-                    Log.Warning($"[HYKJ.Breeding] 未知季节字符串: {s}，已忽略");
+                    Log.Warning($"[Breeding] 未知季节字符串: {s}，已忽略");
                 }
             }
             if (CubDurationDays <= 0f) CubDurationDays = 3f;
