@@ -1,11 +1,12 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Engine;
+using Engine.Media;
 using Engine.Graphics;
 using GameEntitySystem;
 using Game;
 
-namespace HYKJ.Breeding
+namespace Game
 {
     /// <summary>
     /// 动物繁殖状态浮动文字渲染器。
@@ -63,16 +64,23 @@ namespace HYKJ.Breeding
             // 2. 懒加载共享 PrimitivesRenderer3D(来自 SubsystemModelsRenderer)
             if (m_primitivesRenderer == null)
             {
-                var modelsRenderer = Project.FindSubsystem<SubsystemModelsRenderer>(false);
+                // Project.FindSubsystem 是实例方法，需要先拿到当前 Project 实例
+                Project project = GameManager.Project;
+                if (project == null)
+                {
+                    // Project 尚未就绪(可能在加载早期)，下帧再试
+                    return;
+                }
+                var modelsRenderer = project.FindSubsystem<SubsystemModelsRenderer>(false);
                 if (modelsRenderer == null)
                 {
-                    // SubsystemModelsRenderer 尚未就绪(可能在加载早期)，下帧再试
+                    // SubsystemModelsRenderer 尚未就绪，下帧再试
                     return;
                 }
                 m_primitivesRenderer = modelsRenderer.PrimitivesRenderer;
                 if (!m_rendererBoundLogged)
                 {
-                    Log.Information("[HYKJ.Breeding] 渲染器已绑定 SubsystemModelsRenderer.PrimitivesRenderer");
+                    Log.Information("[Breeding] 渲染器已绑定 SubsystemModelsRenderer.PrimitivesRenderer");
                     m_rendererBoundLogged = true;
                 }
             }
@@ -83,11 +91,11 @@ namespace HYKJ.Breeding
                 try
                 {
                     m_font = ContentManager.Get<BitmapFont>("Fonts/Pericles");
-                    Log.Information("[HYKJ.Breeding] 字体已加载: Fonts/Pericles");
+                    Log.Information("[Breeding] 字体已加载: Fonts/Pericles");
                 }
                 catch (Exception e)
                 {
-                    Log.Warning("[HYKJ.Breeding] 加载字体 Fonts/Pericles 失败: " + e.Message);
+                    Log.Warning("[Breeding] 加载字体 Fonts/Pericles 失败: " + e.Message);
                     m_fontLoadFailed = true;
                 }
             }
@@ -107,7 +115,7 @@ namespace HYKJ.Breeding
                 catch (Exception e)
                 {
                     // 单只动物绘制异常不影响其他动物
-                    Log.Warning($"[HYKJ.Breeding] 渲染单只动物异常: id={snapshot[i].Key?.Id}, err={e.Message}");
+                    Log.Warning($"[Breeding] 渲染单只动物异常: id={snapshot[i].Key?.Id}, err={e.Message}");
                 }
             }
 
