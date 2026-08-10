@@ -1,0 +1,16 @@
+# 编译产物
+bin/
+obj/
+
+# 引用的 DLL(不入库，由开发者本地放置)
+Quoted/*.dll
+
+# IDE
+.vs/
+.vscode/
+*.user
+*.suo
+
+# 临时文件
+*.log
+*.tmp
