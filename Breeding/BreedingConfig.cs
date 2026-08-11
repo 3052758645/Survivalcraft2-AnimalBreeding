@@ -270,6 +270,14 @@ namespace Game
         /// </summary>
         public string CubTemplateOverride { get; set; }
 
+        /// <summary>
+        /// 幼崽模板权重表(优先级高于 CubTemplateOverride)。
+        /// 键=模板名，值=权重(非百分比，按相对比例计算)。
+        /// 例: {"Cow": 1, "Bull": 1} 表示 50% 生 Cow，50% 生 Bull。
+        /// 空/null = 回退到 CubTemplateOverride 或沿用母体。
+        /// </summary>
+        public Dictionary<string, float> CubTemplates { get; set; } = new();
+
         // ==================== 运行时(不序列化) ====================
 
         [JsonIgnore]
@@ -316,6 +324,14 @@ namespace Game
                 }
             }
             CubTemplateOverride = string.IsNullOrEmpty(CubTemplateOverride) ? null : CubTemplateOverride;
+            CubTemplates ??= new Dictionary<string, float>();
+            // 移除权重<=0 或空模板名的条目
+            var keysToRemove = new List<string>();
+            foreach (var kv in CubTemplates)
+            {
+                if (string.IsNullOrEmpty(kv.Key) || kv.Value <= 0f) keysToRemove.Add(kv.Key);
+            }
+            foreach (var k in keysToRemove) CubTemplates.Remove(k);
         }
 
         /// <summary>由 BreedingConfig.Normalize 阶段调用，把当前物种名加入 MatingSet。</summary>

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Engine;
 using GameEntitySystem;
 using Game;
@@ -51,6 +52,9 @@ namespace Game
 
         /// <summary>体型更新节流计数器(每 60 帧更新一次体型，避免每帧写 BoxSize)。</summary>
         static long s_debugFrameCounter;
+
+        /// <summary>发情调试日志节流计数器(每 300 帧输出一次找不到公体的日志)。</summary>
+        static long s_debugEstrusCounter;
 
         /// <summary>
         /// 由 BreedingModLoader.OnProjectLoaded 调用，缓存子系统引用并加载配置。
@@ -108,10 +112,13 @@ namespace Game
                     RevertSaddling(entity, revert, cfg);
                     return; // 撤销后该 Saddled 实体已被删除，不再处理
                 }
-                // 无匹配项 = 正常上鞍(原马不处于禁止状态)，按 Saddled 模板继续注册
+                // 无匹配项 = 正常上鞍(原马不处于禁止状态)，继续按带鞍模板注册
             }
 
-            SpeciesConfig species = cfg.GetSpecies(templateName);
+            // 归一化模板名：带鞍的马/驴/骆驼等(*_Saddled)去掉后缀后查找配置
+            // 这样带鞍和不带鞍的同类可互通交配，幼崽不带鞍(用 base 模板生成)
+            string normalizedTemplate = NormalizeTemplateName(templateName);
+            SpeciesConfig species = cfg.GetSpecies(normalizedTemplate);
             if (species == null) return;
 
             if (s_states.ContainsKey(entity))
@@ -121,9 +128,10 @@ namespace Game
             }
 
             // 自然生成的成体：默认成年，性别随机(按配置概率)
+            // TemplateName 存归一化后的名字(不带 _Saddled)，便于交配匹配和体型查找
             BreedingState state = new()
             {
-                TemplateName = templateName,
+                TemplateName = normalizedTemplate,
                 Gender = s_random.Bool(species.CubMaleProbability) ? BreedingGender.Male : BreedingGender.Female,
                 Stage = GrowthStage.Adult,
                 BirthDay = s_timeOfDay.Day,
@@ -135,7 +143,23 @@ namespace Game
             // 缓存原版 BoxSize/ModelScale 并应用成年体型
             CacheAndApplyBoxSize(entity, state, cfg);
 
-            Log.Information($"[Breeding] OnEntityAdd 注册新个体: id={entity.Id}, template={templateName}, gender={state.GetGenderDisplayName()}, stage={state.GetStageDisplayName()}, totalTracked={s_states.Count}");
+            Log.Information($"[Breeding] OnEntityAdd 注册新个体: id={entity.Id}, template={templateName}→{normalizedTemplate}, gender={state.GetGenderDisplayName()}, stage={state.GetStageDisplayName()}, matingSet=[{string.Join(",", species.MatingSet)}], totalTracked={s_states.Count}");
+        }
+
+        /// <summary>
+        /// 归一化模板名：去掉 _Saddled 后缀。
+        /// 例: "Horse_Black_Saddled" → "Horse_Black"
+        /// 非带鞍模板原样返回。
+        /// </summary>
+        static string NormalizeTemplateName(string templateName)
+        {
+            if (string.IsNullOrEmpty(templateName)) return templateName;
+            const string suffix = "_Saddled";
+            if (templateName.EndsWith(suffix, StringComparison.Ordinal))
+            {
+                return templateName.Substring(0, templateName.Length - suffix.Length);
+            }
+            return templateName;
         }
 
         public static void OnEntityRemove(Entity entity)
@@ -316,20 +340,25 @@ namespace Game
             if (cfg?.Enabled != true) return;
 
             string templateName = entity.ValuesDictionary.DatabaseObject?.Name;
-            if (string.IsNullOrEmpty(templateName) || cfg.GetSpecies(templateName) == null) return;
+            if (string.IsNullOrEmpty(templateName)) return;
+
+            // 归一化模板名(带鞍马存档读取时也要归一化)
+            string normalizedTemplate = NormalizeTemplateName(templateName);
+            if (cfg.GetSpecies(normalizedTemplate) == null) return;
 
             BreedingState state = BreedingState.Deserialize(spawnEntityData.Data);
             if (state == null) return;
 
-            if (!string.Equals(state.TemplateName, templateName, StringComparison.Ordinal))
+            // 状态模板名与归一化后的实体模板名比较(支持带鞍马存档恢复)
+            if (!string.Equals(state.TemplateName, normalizedTemplate, StringComparison.Ordinal))
             {
-                Log.Warning($"[Breeding] 状态模板名不匹配: state={state.TemplateName}, entity={templateName}，丢弃旧状态");
+                Log.Warning($"[Breeding] 状态模板名不匹配: state={state.TemplateName}, entity={normalizedTemplate}，丢弃旧状态");
                 return;
             }
             s_states[entity] = state;
             CacheAndApplyBoxSize(entity, state, cfg);
 
-            Log.Information($"[Breeding] OnReadSpawnData 恢复状态: id={entity.Id}, template={templateName}, gender={state.GetGenderDisplayName()}, stage={state.GetStageDisplayName()}, pregnancySec={state.PregnancyRemainingSeconds}, weaknessSec={state.WeaknessRemainingSeconds}");
+            Log.Information($"[Breeding] OnReadSpawnData 恢复状态: id={entity.Id}, template={templateName}→{normalizedTemplate}, gender={state.GetGenderDisplayName()}, stage={state.GetStageDisplayName()}, pregnancySec={state.PregnancyRemainingSeconds}, weaknessSec={state.WeaknessRemainingSeconds}");
         }
 
         public static void OnSaveSpawnData(ComponentSpawn spawn, SpawnEntityData spawnEntityData)
@@ -500,6 +529,11 @@ namespace Game
             Entity mate = FindNearbyEstrusMale(entity, state, species);
             if (mate == null)
             {
+                // 低频调试日志：每 300 帧输出一次，帮助排查"发情但不交配"问题
+                if (s_debugEstrusCounter++ % 300 == 0)
+                {
+                    Log.Information($"[Breeding] 发情中但 MateRadius({species.MateRadius})内无合格公体: id={entity.Id}, template={state.TemplateName}, matingSet=[{string.Join(",", species.MatingSet)}], season={s_seasons.Season}");
+                }
                 state.MatingProximitySeconds = 0f;
                 return;
             }
@@ -710,11 +744,11 @@ namespace Game
             Vector3 offset = new(s_random.Float(-off, off), 0f, s_random.Float(-off, off));
             Vector3 spawnPos = basePos + offset;
 
-            // 用母体模板或 CubTemplateOverride 生成幼崽
-            // 默认沿用母体(外观一致)；若配置了 CubTemplateOverride 则用指定模板(如 Cow 母牛生 Cow 小牛)
-            string cubTemplate = !string.IsNullOrEmpty(species.CubTemplateOverride)
-                ? species.CubTemplateOverride
-                : motherState.TemplateName;
+            // 选择幼崽模板(优先级: CubTemplates权重表 > CubTemplateOverride > 沿用母体)
+            // CubTemplates: 按权重随机选，如 Cow 配 {"Cow":1,"Bull":1} → 50%生Cow 50%生Bull
+            // CubTemplateOverride: 固定模板，如 Cow 配 "Cow" → 永远生 Cow
+            // 默认: 沿用母体模板
+            string cubTemplate = ChooseCubTemplate(species, motherState.TemplateName);
             Entity cub = s_creatureSpawn.SpawnCreature(cubTemplate, spawnPos, false);
             if (cub == null)
             {
@@ -736,7 +770,40 @@ namespace Game
                 // 立即应用幼崽体型(成长度=0 → CubBoxScale)
                 ApplyBoxSizeByGrowth(cub, cubState, species, 0f);
             }
-            Log.Information($"[Breeding] 分娩成功: mother={motherState.TemplateName}#{mother.Id}, cub#{cub.Id}, cubGender={(s_states.TryGetValue(cub, out var cs) ? cs.GetGenderDisplayName() : "?")}");
+            Log.Information($"[Breeding] 分娩成功: mother={motherState.TemplateName}#{mother.Id}, cub#{cub.Id}, cubTemplate={cubTemplate}, cubGender={(s_states.TryGetValue(cub, out var cs) ? cs.GetGenderDisplayName() : "?")}");
+        }
+
+        /// <summary>
+        /// 选择幼崽模板。优先级：CubTemplates权重表 > CubTemplateOverride > 沿用母体。
+        /// CubTemplates 按权重随机(如 {"Cow":1,"Bull":1} → 50%/50%)。
+        /// </summary>
+        static string ChooseCubTemplate(SpeciesConfig species, string motherTemplate)
+        {
+            // 1. CubTemplates 权重表
+            if (species.CubTemplates != null && species.CubTemplates.Count > 0)
+            {
+                float totalWeight = 0f;
+                foreach (var kv in species.CubTemplates) totalWeight += kv.Value;
+                if (totalWeight > 0f)
+                {
+                    float r = s_random.Float(0f, totalWeight);
+                    float cum = 0f;
+                    foreach (var kv in species.CubTemplates)
+                    {
+                        cum += kv.Value;
+                        if (r <= cum) return kv.Key;
+                    }
+                    // 浮点精度兜底
+                    return species.CubTemplates.Last().Key;
+                }
+            }
+            // 2. CubTemplateOverride 固定模板
+            if (!string.IsNullOrEmpty(species.CubTemplateOverride))
+            {
+                return species.CubTemplateOverride;
+            }
+            // 3. 沿用母体模板
+            return motherTemplate;
         }
 
         // ==================== 攻击力与 ChaseRange ====================

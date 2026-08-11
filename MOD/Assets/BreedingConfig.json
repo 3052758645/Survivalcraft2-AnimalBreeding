@@ -67,7 +67,7 @@
     "Horse_White":   { "_说明": "白马(寒带)。温顺草食动物，春季发情，公马会为争夺母马打斗。", "BreedingSeasons": [ "Spring" ], "CubDurationDays": 5, "GestationSeconds": 60.0, "MatingRequiredProximitySeconds": 12.0, "WeaknessSeconds": 90.0, "RivalChaseTime": 30.0, "MateRadius": 2.5, "SeekRadius": 24.0, "BirthSpawnOffset": 1.5, "CubAttackFactor": 0.2, "AdultAttackFactor": 0.5, "MaleAttackBonus": 1.2, "CubBoxScale": 0.5, "AdultMaleBoxScale": 1.1, "AdultFemaleBoxScale": 1.0, "EstrusChaseRangeMultiplier": 1.0, "CubMaleProbability": 0.5 },
 
     "Cow": {
-      "_说明": "母牛。与 Bull(公牛) 通过 Aliases 互通交配，幼崽用 Cow 模板(小母牛)。",
+      "_说明": "母牛。与 Bull(公牛) 通过 Aliases 互通交配。CubTemplates 按权重随机生 Cow 或 Bull。",
       "BreedingSeasons": [ "Spring", "Summer" ],
       "CubDurationDays": 4,
       "GestationSeconds": 90.0,
@@ -88,10 +88,10 @@
       "BlockInteractDuringBreeding": true,
       "BlockInteractDuringCub": true,
       "Aliases": [ "Bull" ],
-      "CubTemplateOverride": "Cow"
+      "CubTemplates": { "Cow": 1, "Bull": 1 }
     },
     "Bull": {
-      "_说明": "公牛。与 Cow(母牛) 通过 Aliases 互通交配，幼崽用 Bull 模板(小公牛)。",
+      "_说明": "公牛。与 Cow(母牛) 通过 Aliases 互通交配。公牛不怀孕，分娩由母牛负责。",
       "BreedingSeasons": [ "Spring", "Summer" ],
       "CubDurationDays": 4,
       "GestationSeconds": 90.0,
@@ -111,8 +111,7 @@
       "CubMaleProbability": 1.0,
       "BlockInteractDuringBreeding": true,
       "BlockInteractDuringCub": true,
-      "Aliases": [ "Cow" ],
-      "CubTemplateOverride": "Bull"
+      "Aliases": [ "Cow" ]
     },
 
     "Donkey": {
