@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Engine;
@@ -8,13 +9,19 @@ using Game;
 namespace Game
 {
     /// <summary>
-    /// 动物繁殖系统配置。对应 MOD/Assets/BreedingConfig.json。
+    /// 动物繁殖系统配置。对应 MOD/Assets/BreedingConfig.json(主配置)。
     /// 全局只保留总开关 Enabled，其余所有参数都按物种独立配置(Species)。
     /// 每个物种(Wolf_Gray 等)可自定义：孕期/体型/攻击力/交配半径/虚弱期等。
+    ///
+    /// 多源配置合并(方案B)：
+    /// · 主配置 BreedingConfig.json — 决定 Enabled 总开关 + 自带物种
+    /// · 扩展配置 BreedingConfig.{ModId}.json — 第三方模组自带，仅追加 Species
+    /// · 同名模板：主配置优先；扩展之间按文件名排序，先到先得
+    /// · 扩展配置中的 Enabled 字段被忽略(防止第三方关闭整个系统)
     /// </summary>
     public class BreedingConfig
     {
-        /// <summary>全局总开关。false 时繁殖系统完全不生效。</summary>
+        /// <summary>全局总开关。false 时繁殖系统完全不生效。仅主配置 BreedingConfig.json 的值生效。</summary>
         public bool Enabled { get; set; } = true;
 
         /// <summary>按实体模板名索引的物种配置。每个物种独立设置所有繁殖参数。</summary>
@@ -24,31 +31,52 @@ namespace Game
 
         public static BreedingConfig Current { get; private set; }
 
+        /// <summary>
+        /// 加载并合并所有 BreedingConfig*.json。
+        /// 1) 先加载主配置 BreedingConfig.json(决定 Enabled + 主物种)
+        /// 2) 再按文件名排序加载扩展配置 BreedingConfig.{ModId}.json(仅追加 Species)
+        /// 同名模板主配置永远优先；扩展之间先到先得，冲突打 Warning 跳过。
+        /// </summary>
         public static BreedingConfig Load()
         {
             try
             {
-                string json = ContentManager.Get<string>("BreedingConfig", ".json");
-                if (string.IsNullOrEmpty(json))
-                {
-                    Log.Warning("[Breeding] BreedingConfig.json 内容为空，繁殖系统将禁用");
-                    Current = new BreedingConfig { Enabled = false };
-                    return Current;
-                }
                 JsonSerializerOptions opts = new()
                 {
                     ReadCommentHandling = JsonCommentHandling.Skip,
                     AllowTrailingCommas = true,
                     PropertyNameCaseInsensitive = true
                 };
-                BreedingConfig cfg = JsonSerializer.Deserialize<BreedingConfig>(json, opts) ?? new BreedingConfig();
+
+                // 1) 主配置 BreedingConfig.json — 决定 Enabled
+                string mainJson = ContentManager.Get<string>("BreedingConfig", ".json");
+                BreedingConfig cfg;
+                if (string.IsNullOrEmpty(mainJson))
+                {
+                    Log.Warning("[Breeding] 主配置 BreedingConfig.json 内容为空，繁殖系统将禁用");
+                    cfg = new BreedingConfig { Enabled = false };
+                }
+                else
+                {
+                    cfg = JsonSerializer.Deserialize<BreedingConfig>(mainJson, opts) ?? new BreedingConfig();
+                }
                 cfg.Species ??= new Dictionary<string, SpeciesConfig>();
                 foreach (KeyValuePair<string, SpeciesConfig> kv in cfg.Species)
                 {
                     kv.Value?.Normalize();
                 }
+                Log.Information($"[Breeding] 主配置加载完成，物种数={cfg.Species.Count}，Enabled={cfg.Enabled}");
+
+                // 2) 扩展配置 BreedingConfig.{ModId}.json — 仅追加 Species
+                List<ContentInfo> extensions = ListExtensionConfigs();
+                Log.Information($"[Breeding] 发现 {extensions.Count} 个扩展配置文件");
+                foreach (ContentInfo ext in extensions)
+                {
+                    MergeExtension(cfg, ext, opts);
+                }
+
                 Current = cfg;
-                Log.Information($"[Breeding] 配置加载完成，物种数={cfg.Species.Count}，Enabled={cfg.Enabled}");
+                Log.Information($"[Breeding] 全部配置合并完成，总物种数={cfg.Species.Count}，Enabled={cfg.Enabled}");
                 return Current;
             }
             catch (Exception e)
@@ -56,6 +84,72 @@ namespace Game
                 Log.Warning("[Breeding] 配置加载失败: " + e.Message);
                 Current = new BreedingConfig { Enabled = false };
                 return Current;
+            }
+        }
+
+        /// <summary>
+        /// 列出所有扩展配置文件(BreedingConfig.{ModId}.json)。
+        /// 主配置 BreedingConfig.json 被排除。按 Filename 排序，保证合并顺序稳定。
+        /// </summary>
+        static List<ContentInfo> ListExtensionConfigs()
+        {
+            List<ContentInfo> result = new();
+            foreach (ContentInfo info in ContentManager.List())
+            {
+                if (info == null || info.Filename == null) continue;
+                // 必须以 .json 结尾
+                if (!info.Filename.EndsWith(".json", StringComparison.OrdinalIgnoreCase)) continue;
+                // 文件名去后缀后必须等于 BreedingConfig 或 BreedingConfig.{ModId}
+                string stem = info.Filename.Substring(0, info.Filename.Length - ".json".Length);
+                if (stem.Equals("BreedingConfig", StringComparison.OrdinalIgnoreCase)) continue; // 主配置跳过
+                if (!stem.StartsWith("BreedingConfig.", StringComparison.OrdinalIgnoreCase)) continue;
+                result.Add(info);
+            }
+            result.Sort((a, b) => string.Compare(a.Filename, b.Filename, StringComparison.OrdinalIgnoreCase));
+            return result;
+        }
+
+        /// <summary>
+        /// 合并单个扩展配置到主配置。
+        /// · 扩展配置的 Enabled 被忽略(仅主配置可控制总开关)
+        /// · Species 同名模板：主配置已有则跳过并 Warning，否则追加
+        /// </summary>
+        static void MergeExtension(BreedingConfig main, ContentInfo extInfo, JsonSerializerOptions opts)
+        {
+            try
+            {
+                Stream stream = extInfo.Duplicate();
+                string json = new StreamReader(stream).ReadToEnd();
+                if (string.IsNullOrEmpty(json))
+                {
+                    Log.Warning($"[Breeding] 扩展配置 {extInfo.Filename} 内容为空，跳过");
+                    return;
+                }
+                BreedingConfig ext = JsonSerializer.Deserialize<BreedingConfig>(json, opts);
+                if (ext?.Species == null || ext.Species.Count == 0)
+                {
+                    Log.Warning($"[Breeding] 扩展配置 {extInfo.Filename} 无 Species 条目，跳过");
+                    return;
+                }
+                int added = 0, skipped = 0;
+                foreach (KeyValuePair<string, SpeciesConfig> kv in ext.Species)
+                {
+                    if (kv.Value == null) continue;
+                    if (main.Species.ContainsKey(kv.Key))
+                    {
+                        Log.Warning($"[Breeding] 扩展配置 {extInfo.Filename} 的物种 '{kv.Key}' 与主配置/先加载的扩展冲突，跳过");
+                        skipped++;
+                        continue;
+                    }
+                    kv.Value.Normalize();
+                    main.Species[kv.Key] = kv.Value;
+                    added++;
+                }
+                Log.Information($"[Breeding] 扩展配置 {extInfo.Filename} 合并完成：新增 {added} 个物种，跳过 {skipped} 个冲突");
+            }
+            catch (Exception e)
+            {
+                Log.Warning($"[Breeding] 扩展配置 {extInfo.Filename} 解析失败: {e.Message}");
             }
         }
 

@@ -277,19 +277,90 @@
 ## 八、配置加载机制
 
 - **加载时机**：`OnProjectLoaded` 钩子中调用 `BreedingConfig.Load()`，即世界加载完成时。
-- **加载方式**：通过 `ContentManager.Get<string>("BreedingConfig", ".json")` 读取 `MOD/Assets/BreedingConfig.json`。
-- **缓存**：加载后存入 `BreedingConfig.Current` 静态属性，运行时直接读取。
-- **重载**：修改配置后**退出世界重进**即可重新加载，无需重启游戏。
+- **加载方式（多源合并）**：
+  1. 先通过 `ContentManager.Get<string>("BreedingConfig", ".json")` 读取**主配置** `MOD/Assets/BreedingConfig.json`，确定 `Enabled` 总开关。
+  2. 再遍历 `ContentManager.List()`，找出所有**扩展配置** `BreedingConfig.{ModId}.json`，按文件名排序后逐个合并 `Species`。
+- **缓存**：合并后存入 `BreedingConfig.Current` 静态属性，运行时直接读取。
+- **重载**：修改任意配置后**退出世界重进**即可重新加载，无需重启游戏。
 - **容错**：
-  - 配置文件为空 → 繁殖系统禁用（`Enabled=false`）。
-  - 配置文件解析失败 → 繁殖系统禁用，日志输出警告。
+  - 主配置为空 → 繁殖系统禁用（`Enabled=false`）。
+  - 主配置解析失败 → 繁殖系统禁用，日志输出警告。
+  - 扩展配置为空/无 Species/解析失败 → 跳过该扩展，不影响其他配置。
   - 未知季节字符串 → 忽略并日志警告。
   - `CubDurationDays <= 0` → 自动改为 3 天。
   - `Species` 为 null → 自动初始化为空字典。
 
 ---
 
-## 九、参数与代码对应关系
+## 九、第三方模组接入（多源配置）
+
+本模组支持**多源配置合并**：其他模组可以自带一份繁殖配置文件，无需修改本模组代码、无需手动合并配置。
+
+### 文件命名规则
+
+| 类型 | 文件名 | 作用 |
+|------|--------|------|
+| 主配置 | `BreedingConfig.json` | 决定 `Enabled` 总开关 + 自带物种。仅本模组提供。 |
+| 扩展配置 | `BreedingConfig.{ModId}.json` | 第三方模组自带，**仅追加 `Species`**。`{ModId}` 建议用模组唯一标识，避免重名。 |
+
+> 例：`BreedingConfig.CowMod.json`、`BreedingConfig.HyenaPack.json`
+
+### 合并规则
+
+1. **先加载主配置** `BreedingConfig.json`，确定 `Enabled` 和主物种。
+2. **再按文件名排序加载扩展配置**（顺序稳定，便于排查冲突）。
+3. **同名模板冲突**：主配置永远优先；扩展之间先到先得，后者打 `Warning` 日志并跳过。
+4. **扩展配置中的 `Enabled` 字段被忽略**（防止第三方模组意外关闭整个繁殖系统）。
+5. **扩展配置可省略所有非 Species 字段**，只写 `Species` 即可。
+
+### 第三方模组接入步骤
+
+1. **确认生物满足前提**：
+   - 模板已注册到 `DatabaseManager`（即 `entity.ValuesDictionary.DatabaseObject?.Name` 能拿到模板名）。
+   - 生物有 `ComponentCreature` / `ComponentBody` / `ComponentSpawn` / `ComponentModel` / `ComponentFactors` 组件。
+2. **在第三方模组的 `MOD/Assets/` 下**放一份 `BreedingConfig.{你的模组Id}.json`：
+   ```json
+   {
+     "Species": {
+       "Cow": {
+         "BreedingSeasons": [ "Spring", "Summer" ],
+         "CubDurationDays": 2,
+         "GestationSeconds": 60.0,
+         "AdultMaleBoxScale": 1.1,
+         "MaleAttackBonus": 1.0,
+         "CubAttackFactor": 0.2,
+         "AdultAttackFactor": 0.5
+       },
+       "Bull": {
+         "BreedingSeasons": [ "Autumn" ],
+         "CubDurationDays": 4
+       }
+     }
+   }
+   ```
+3. **打包发布**：用户同时安装本繁殖模组和你的模组即可，配置会自动合并。
+4. **冲突排查**：游戏日志会输出每个扩展配置的合并结果，例如：
+   ```
+   [Breeding] 主配置加载完成，物种数=6，Enabled=True
+   [Breeding] 发现 1 个扩展配置文件
+   [Breeding] 扩展配置 BreedingConfig.CowMod.json 合并完成：新增 2 个物种，跳过 0 个冲突
+   [Breeding] 全部配置合并完成，总物种数=8，Enabled=True
+   ```
+   若有冲突，会看到：
+   ```
+   [Breeding] 扩展配置 BreedingConfig.CowMod.json 的物种 'Wolf_Gray' 与主配置/先加载的扩展冲突，跳过
+   ```
+
+### 注意事项
+
+- **扩展配置只能追加新物种，不能修改主配置已有物种的参数**。如需覆盖，请直接编辑主配置 `BreedingConfig.json`。
+- **`{ModId}` 不要用 `Wolf_Gray` 这种模板名**，建议用模组包名/作者名，避免和别人的扩展重名导致排序混乱。
+- **不写 `Enabled` 字段**：扩展配置写了也会被忽略，总开关只认主配置。
+- **可向后兼容**：旧版本只读 `BreedingConfig.json`，扩展文件会被忽略，不会报错。
+
+---
+
+## 十、参数与代码对应关系
 
 | 配置参数 | 代码位置 | 用途 |
 |---------|---------|------|
