@@ -114,16 +114,17 @@ namespace Game
         /// 合并单个扩展配置到主配置。
         /// · 扩展配置的 Enabled 被忽略(仅主配置可控制总开关)
         /// · Species 同名模板：主配置已有则跳过并 Warning，否则追加
+        /// 用 ContentManager.Get<string> 读取(走标准 IContentReader 流程，比 Duplicate() 更可靠)。
         /// </summary>
         static void MergeExtension(BreedingConfig main, ContentInfo extInfo, JsonSerializerOptions opts)
         {
             try
             {
-                Stream stream = extInfo.Duplicate();
-                string json = new StreamReader(stream).ReadToEnd();
+                // 用 Get<string> 读取，throwOnNotFound=false 避免抛异常
+                string json = ContentManager.Get<string>(extInfo.ContentPath, extInfo.ContentSuffix, false);
                 if (string.IsNullOrEmpty(json))
                 {
-                    Log.Warning($"[Breeding] 扩展配置 {extInfo.Filename} 内容为空，跳过");
+                    Log.Warning($"[Breeding] 扩展配置 {extInfo.Filename} 内容为空或读取失败，跳过");
                     return;
                 }
                 BreedingConfig ext = JsonSerializer.Deserialize<BreedingConfig>(json, opts);

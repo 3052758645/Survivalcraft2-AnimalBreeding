@@ -112,8 +112,9 @@
 | `ConsumeSaddleOnBlocked` | bool | `false` | 上鞍被拦截时是否仍消耗玩家手中的鞍。详见下方说明。 |
 
 > **`ConsumeSaddleOnBlocked` 详细说明**：
-> - `false`（默认）：鞍退回玩家。**但当前 mod API 无 `OnUse` hook，原版 `SubsystemSaddleBlockBehavior.OnUse` 在调用我们 hook 前已经扣鞍，因此实际行为是"鞍已扣但上鞍被撤销"。** 真正退鞍需要等官方加 `OnUse` hook 或改用 Harmony patch。
+> - `false`（默认）：希望退鞍。**但当前 mod API 无 `OnUse` hook，原版 `SubsystemSaddleBlockBehavior.OnUse` 在调用我们 hook 前已经 `RemoveActiveTool(1)` 扣鞍，因此实际行为是"鞍已扣 + 上鞍被撤销"，无法真正退鞍。** 真正退鞍需要等官方加 `OnUse` hook 或改用 Harmony patch。
 > - `true`：鞍被扣掉但马没上鞍（作为惩罚，玩家会看到"该生物无法上鞍"日志）。
+> - **两者的实际区别仅在于日志措辞**，鞍都会被扣。若要真正退鞍需官方支持。
 > - **骑乘拦截无此问题**：`ScoreMount` hook 是干净的，被拦截时玩家根本无法骑上，无任何副作用。
 
 ### 物种别名与幼崽模板参数

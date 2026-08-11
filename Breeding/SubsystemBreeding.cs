@@ -54,10 +54,16 @@ namespace Game
 
         /// <summary>
         /// 由 BreedingModLoader.OnProjectLoaded 调用，缓存子系统引用并加载配置。
+        /// 注意：ModLoader 是单例，静态字段跨世界保留，必须在此清空旧世界的残留状态。
         /// </summary>
         public static void Initialize(Project project)
         {
             Log.Information("[Breeding] Initialize 开始");
+            // 清空旧世界残留(静态字段跨世界保留，不清空会导致旧 Entity 引用泄漏)
+            s_states.Clear();
+            s_pendingReverts.Clear();
+            s_initialized = false;
+
             s_project = project;
             s_creatureSpawn = project.FindSubsystem<SubsystemCreatureSpawn>(true);
             s_bodies = project.FindSubsystem<SubsystemBodies>(true);
@@ -136,14 +142,21 @@ namespace Game
         {
             if (entity == null) return;
 
-            // 上鞍撤销暂存：如果被移除的原马处于禁止交互状态，暂存其状态+位置待恢复
+            // 上鞍撤销暂存：仅当被移除的是"活的、处于禁止交互状态、配置了交互拦截的可骑乘物种"时暂存。
+            // 过滤条件说明：
+            //   1. 物种必须配置了 BlockInteractDuringBreeding 或 BlockInteractDuringCub（否则上鞍不会被拦截，无需暂存）
+            //   2. 实体必须处于禁止交互状态（繁殖期或幼崽期）
+            //   3. 实体必须是活的（Health 为 null 或 > 0），排除死亡移除（被打死/烧死等不会是上鞍）
             if (s_initialized
                 && s_states.TryGetValue(entity, out BreedingState state)
                 && s_time != null)
             {
                 BreedingConfig cfg = BreedingConfig.Current;
                 SpeciesConfig species = cfg?.GetSpecies(state.TemplateName);
-                if (species != null && IsInteractBlocked(state, species))
+                if (species != null
+                    && (species.BlockInteractDuringBreeding || species.BlockInteractDuringCub)
+                    && IsInteractBlocked(state, species)
+                    && IsAlive(entity))
                 {
                     ComponentBody body = entity.FindComponent<ComponentBody>();
                     if (body != null)
@@ -158,8 +171,6 @@ namespace Game
                             QueuedAtSeconds = s_time.GameTime
                         });
                         Log.Information($"[Breeding] 暂存禁止交互原马待恢复: template={state.TemplateName}#{entity.Id}, stage={state.GetStageDisplayName()}, pos={body.Position}");
-                        // 注意：不调用 s_states.Remove，因为状态要传给重建的原马
-                        // 但 entity 即将被销毁，从字典移除以避免悬挂引用
                         s_states.Remove(entity);
                         return;
                     }
@@ -171,6 +182,20 @@ namespace Game
             {
                 Log.Information($"[Breeding] OnEntityRemove 清理: id={entity.Id}, totalTracked={s_states.Count}");
             }
+        }
+
+        /// <summary>
+        /// 判断实体是否存活(用于区分上鞍移除 vs 死亡移除)。
+        /// 上鞍时原版检查 componentHealth == null || health > 0f，所以上鞍的实体是活的。
+        /// 死亡移除时 Health <= 0 或 DeathTime 有值。
+        /// </summary>
+        static bool IsAlive(Entity entity)
+        {
+            if (entity == null) return false;
+            ComponentHealth health = entity.FindComponent<ComponentHealth>();
+            if (health == null) return true; // 无血量组件 = 不会死亡 = 视为活
+            if (health.DeathTime.HasValue) return false; // 已死亡
+            return health.Health > 0f;
         }
 
         // ==================== 上鞍撤销(无 hook，用 OnEntityAdd 撤销法) ====================
@@ -264,15 +289,16 @@ namespace Game
                 s_states[original] = revert.State;
                 CacheAndApplyBoxSize(original, revert.State, cfg);
 
-                // 4. 退鞍(如果配置 ConsumeSaddleOnBlocked=false)
-                //    原版 OnUse 在调用我们 hook 前已经 RemoveActiveTool(1) 扣了鞍，无法直接退回原鞍。
-                //    但我们可以给最近的玩家背包加一个 Saddle 物品作为补偿。
-                //    注意：此退鞍是"补偿"，不保证精确到原鞍，但物品数量正确。
+                // 4. 退鞍处理(如果配置 ConsumeSaddleOnBlocked=false)
+                //    原版 OnUse 在调用我们 hook 前已经 RemoveActiveTool(1) 扣了鞍。
+                //    当前 mod API 无 OnUse hook，无法在扣鞍前拦截，也无法精确定位操作玩家。
+                //    因此 ConsumeSaddleOnBlocked=false 的实际行为是"鞍已扣 + 上鞍被撤销"，
+                //    无法真正退鞍。此处仅日志提示。
                 SpeciesConfig species = cfg.GetSpecies(revert.OriginalTemplate);
                 bool consume = species?.ConsumeSaddleOnBlocked ?? false;
                 if (!consume)
                 {
-                    TryRefundSaddle();
+                    Log.Warning("[Breeding] ConsumeSaddleOnBlocked=false：原版已扣鞍，mod API 无 OnUse hook 无法退鞍，上鞍已撤销");
                 }
 
                 Log.Information($"[Breeding] 撤销上鞍成功: original={revert.OriginalTemplate}, stage={revert.State.GetStageDisplayName()}, consumeSaddle={consume}, totalTracked={s_states.Count}");
@@ -281,19 +307,6 @@ namespace Game
             {
                 Log.Warning($"[Breeding] 撤销上鞍异常: {e.Message}");
             }
-        }
-
-        /// <summary>
-        /// 尝试给最近的玩家补偿一个鞍(Saddle 物品 id=158 对应的 BlockValue/Pickable)。
-        /// 由于无法精确知道是哪个玩家操作的，这里简化为：不做补偿，仅日志提示。
-        /// 真正的退鞍需要 hook OnUse 在扣鞍前拦截，当前 mod API 无此能力。
-        /// </summary>
-        static void TryRefundSaddle()
-        {
-            // 当前 mod API 无 OnUse hook，无法在扣鞍前拦截，也无法精确定位玩家。
-            // ConsumeSaddleOnBlocked=false 的语义退化为"不额外惩罚"(原版已扣的鞍不退)。
-            // 若要真正退鞍，需要等官方加 OnUse hook 或改用 Harmony patch。
-            Log.Warning("[Breeding] ConsumeSaddleOnBlocked=false 但当前 mod API 无 OnUse hook，无法退鞍(原版已扣鞍)");
         }
 
         public static void OnReadSpawnData(Entity entity, SpawnEntityData spawnEntityData)
