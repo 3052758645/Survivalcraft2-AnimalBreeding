@@ -61,7 +61,7 @@ namespace Game
             BreedingConfig cfg = BreedingConfig.Current;
             if (cfg?.Enabled == true)
             {
-                Log.Information($"[Breeding] 初始化完成，追踪物种数={cfg.Species.Count}，GestationSeconds={cfg.GestationSeconds}");
+                Log.Information($"[Breeding] 初始化完成，追踪物种数={cfg.Species.Count}");
             }
             else
             {
@@ -84,7 +84,8 @@ namespace Game
 
             string templateName = entity.ValuesDictionary.DatabaseObject?.Name;
             if (string.IsNullOrEmpty(templateName)) return;
-            if (cfg.GetSpecies(templateName) == null) return;
+            SpeciesConfig species = cfg.GetSpecies(templateName);
+            if (species == null) return;
 
             if (s_states.ContainsKey(entity))
             {
@@ -96,7 +97,7 @@ namespace Game
             BreedingState state = new()
             {
                 TemplateName = templateName,
-                Gender = s_random.Bool(cfg.CubMaleProbability) ? BreedingGender.Male : BreedingGender.Female,
+                Gender = s_random.Bool(species.CubMaleProbability) ? BreedingGender.Male : BreedingGender.Female,
                 Stage = GrowthStage.Adult,
                 BirthDay = s_timeOfDay.Day,
                 PregnancyRemainingSeconds = -1f,
@@ -184,27 +185,27 @@ namespace Game
                 && !state.IsWeak;
 
             // 3. 成长阶段推进
-            UpdateGrowth(entity, state, species, cfg);
+            UpdateGrowth(entity, state, species);
 
             // 4. 体型随成长度更新(节流，每 60 帧一次)
-            UpdateBoxSize(entity, state, cfg, species);
+            UpdateBoxSize(entity, state, species);
 
             // 5. 仇恨范围 factor(幼崽/怀孕母狼=0，发情期×倍率)
-            ApplyChaseRangeFactor(factors, state, cfg);
+            ApplyChaseRangeFactor(factors, state, species);
 
             // 6. 性别特定更新
             if (state.Gender == BreedingGender.Female)
             {
-                UpdateFemale(entity, state, species, cfg, dt);
+                UpdateFemale(entity, state, species, dt);
             }
             else
             {
-                UpdateMale(entity, state, species, cfg);
+                UpdateMale(entity, state, species);
             }
         }
 
         /// <summary>成长阶段推进。幼崽期到达 CubDurationDays 后进阶成年。</summary>
-        static void UpdateGrowth(Entity entity, BreedingState state, SpeciesConfig species, BreedingConfig cfg)
+        static void UpdateGrowth(Entity entity, BreedingState state, SpeciesConfig species)
         {
             if (state.Stage != GrowthStage.Cub) return;
 
@@ -216,19 +217,19 @@ namespace Game
                 state.Stage = GrowthStage.Adult;
                 Log.Information($"[Breeding] 幼崽进阶成年: id={entity.Id}, template={state.TemplateName}, age={ageDays:F2}天, cubDuration={species.CubDurationDays}天");
                 // 进阶成年时立即应用一次成年体型
-                ApplyBoxSizeByGrowth(entity, state, cfg, 1f);
+                ApplyBoxSizeByGrowth(entity, state, species, 1f);
             }
         }
 
         /// <summary>体型更新节流：每 60 帧根据成长度重新计算 BoxSize + ModelScale。</summary>
-        static void UpdateBoxSize(Entity entity, BreedingState state, BreedingConfig cfg, SpeciesConfig species)
+        static void UpdateBoxSize(Entity entity, BreedingState state, SpeciesConfig species)
         {
             if (state.Stage != GrowthStage.Cub) return; // 成年在进阶时已应用
             if (s_debugFrameCounter++ % 60 != 0) return;
 
             double currentDay = s_timeOfDay.Day;
             float progress = state.GetGrowthProgress(currentDay, species.CubDurationDays);
-            ApplyBoxSizeByGrowth(entity, state, cfg, progress);
+            ApplyBoxSizeByGrowth(entity, state, species, progress);
         }
 
         /// <summary>
@@ -236,14 +237,14 @@ namespace Game
         /// scale = lerp(CubBoxScale, 成年scale, progress)
         /// 成年scale：公=AdultMaleBoxScale，母=AdultFemaleBoxScale。
         /// </summary>
-        static void ApplyBoxSizeByGrowth(Entity entity, BreedingState state, BreedingConfig cfg, float progress)
+        static void ApplyBoxSizeByGrowth(Entity entity, BreedingState state, SpeciesConfig species, float progress)
         {
             ComponentBody body = entity.FindComponent<ComponentBody>();
             if (body == null) return;
             if (!state.OriginalBoxSize.HasValue) return;
 
-            float adultScale = state.Gender == BreedingGender.Male ? cfg.AdultMaleBoxScale : cfg.AdultFemaleBoxScale;
-            float scale = cfg.CubBoxScale + (adultScale - cfg.CubBoxScale) * progress;
+            float adultScale = state.Gender == BreedingGender.Male ? species.AdultMaleBoxScale : species.AdultFemaleBoxScale;
+            float scale = species.CubBoxScale + (adultScale - species.CubBoxScale) * progress;
 
             // 碰撞盒
             Vector3 orig = state.OriginalBoxSize.Value;
@@ -278,12 +279,12 @@ namespace Game
 
             double currentDay = s_timeOfDay.Day;
             float progress = state.GetGrowthProgress(currentDay, species.CubDurationDays);
-            ApplyBoxSizeByGrowth(entity, state, cfg, progress);
+            ApplyBoxSizeByGrowth(entity, state, species, progress);
         }
 
         // ==================== 母体更新：孕期倒计时 + 相处交配 ====================
 
-        static void UpdateFemale(Entity entity, BreedingState state, SpeciesConfig species, BreedingConfig cfg, float dt)
+        static void UpdateFemale(Entity entity, BreedingState state, SpeciesConfig species, float dt)
         {
             // 1. 孕期倒计时
             if (state.PregnancyRemainingSeconds > 0f)
@@ -295,7 +296,7 @@ namespace Game
                     GiveBirth(entity, state, species);
                     state.PregnancyFatherId = 0;
                     // 分娩后进入虚弱期
-                    state.WeaknessRemainingSeconds = cfg.WeaknessSeconds;
+                    state.WeaknessRemainingSeconds = species.WeaknessSeconds;
                 }
                 return; // 怀孕中不交配
             }
@@ -308,7 +309,7 @@ namespace Game
             }
 
             // 3. 寻找附近发情成年公体(MateRadius 内)
-            Entity mate = FindNearbyEstrusMale(entity, state, cfg);
+            Entity mate = FindNearbyEstrusMale(entity, state, species);
             if (mate == null)
             {
                 state.MatingProximitySeconds = 0f;
@@ -319,9 +320,9 @@ namespace Game
             state.MatingProximitySeconds += dt;
 
             // 5. 相处时间达到阈值 → 交配
-            if (state.MatingProximitySeconds >= cfg.MatingRequiredProximitySeconds)
+            if (state.MatingProximitySeconds >= species.MatingRequiredProximitySeconds)
             {
-                state.PregnancyRemainingSeconds = cfg.GestationSeconds;
+                state.PregnancyRemainingSeconds = species.GestationSeconds;
                 state.PregnancyFatherId = mate.Id;
                 state.MatingProximitySeconds = 0f;
                 // 母狼不进入虚弱期，直接怀孕(怀孕期间不会再次交配)
@@ -330,22 +331,22 @@ namespace Game
                 // 只有公狼进入虚弱期(防止一公多母)
                 if (s_states.TryGetValue(mate, out BreedingState maleState))
                 {
-                    maleState.WeaknessRemainingSeconds = cfg.WeaknessSeconds;
+                    maleState.WeaknessRemainingSeconds = species.WeaknessSeconds;
                     maleState.IsInEstrus = false; // 立即更新，防止同帧其他母狼找到他
                     maleState.TargetFemaleId = 0;
                 }
 
-                Log.Information($"[Breeding] 交配成功(相处{cfg.MatingRequiredProximitySeconds}秒): mother={state.TemplateName}#{entity.Id}, father#{mate.Id}, gestationSec={cfg.GestationSeconds}, maleWeaknessSec={cfg.WeaknessSeconds}");
+                Log.Information($"[Breeding] 交配成功(相处{species.MatingRequiredProximitySeconds}秒): mother={state.TemplateName}#{entity.Id}, father#{mate.Id}, gestationSec={species.GestationSeconds}, maleWeaknessSec={species.WeaknessSeconds}");
             }
         }
 
         /// <summary>查找 MateRadius 内的发情成年公体(同模板)。额外检查 IsWeak 防止同帧多次交配。</summary>
-        static Entity FindNearbyEstrusMale(Entity entity, BreedingState state, BreedingConfig cfg)
+        static Entity FindNearbyEstrusMale(Entity entity, BreedingState state, SpeciesConfig species)
         {
             ComponentBody body = entity.FindComponent<ComponentBody>();
             if (body == null) return null;
             Vector3 pos = body.Position;
-            float radius = cfg.MateRadius;
+            float radius = species.MateRadius;
 
             DynamicArray<ComponentBody> results = new();
             s_bodies.FindBodiesAroundPoint(new Vector2(pos.X, pos.Z), radius, results);
@@ -375,7 +376,7 @@ namespace Game
         /// 3. 有竞争对手 → 通过 ComponentChaseBehavior.Attack 攻击对方(公狼间矛盾)。
         /// 4. 无竞争对手 → 设路径走向母狼。
         /// </summary>
-        static void UpdateMale(Entity entity, BreedingState state, SpeciesConfig species, BreedingConfig cfg)
+        static void UpdateMale(Entity entity, BreedingState state, SpeciesConfig species)
         {
             // 不在发情期 → 清除目标，不寻路
             if (!state.IsInEstrus)
@@ -385,7 +386,7 @@ namespace Game
             }
 
             // 寻找最近的发情母狼
-            Entity female = FindNearestEstrusFemale(entity, state, cfg);
+            Entity female = FindNearestEstrusFemale(entity, state, species);
             if (female == null)
             {
                 state.TargetFemaleId = 0;
@@ -395,7 +396,7 @@ namespace Game
             state.TargetFemaleId = female.Id;
 
             // 检查是否有竞争对手(其他公狼也以同一母狼为目标)
-            Entity rival = FindRival(entity, state, female.Id, cfg);
+            Entity rival = FindRival(entity, state, female.Id, species);
             if (rival != null)
             {
                 // 有竞争对手 → 攻击对方
@@ -404,7 +405,7 @@ namespace Game
                 if (rivalCreature != null && chaseBehavior != null)
                 {
                     // 攻击竞争对手(范围=SeekRadius，追击时间=RivalChaseTime秒，非持久)
-                    chaseBehavior.Attack(rivalCreature, cfg.SeekRadius, cfg.RivalChaseTime, false);
+                    chaseBehavior.Attack(rivalCreature, species.SeekRadius, species.RivalChaseTime, false);
                     Log.Information($"[Breeding] 公狼竞争: #{entity.Id} 攻击 #{rival.Id}，目标母狼#{female.Id}");
                 }
                 return;
@@ -432,12 +433,12 @@ namespace Game
         /// <summary>
         /// 查找竞争对手：在同一 SeekRadius 内，有其他发情公狼也以 targetFemaleId 为目标。
         /// </summary>
-        static Entity FindRival(Entity entity, BreedingState state, int targetFemaleId, BreedingConfig cfg)
+        static Entity FindRival(Entity entity, BreedingState state, int targetFemaleId, SpeciesConfig species)
         {
             ComponentBody body = entity.FindComponent<ComponentBody>();
             if (body == null) return null;
             Vector3 pos = body.Position;
-            float radius = cfg.SeekRadius;
+            float radius = species.SeekRadius;
 
             DynamicArray<ComponentBody> results = new();
             s_bodies.FindBodiesAroundPoint(new Vector2(pos.X, pos.Z), radius, results);
@@ -458,12 +459,12 @@ namespace Game
         }
 
         /// <summary>查找 SeekRadius 内最近的发情成年母狼(同模板，未怀孕)。</summary>
-        static Entity FindNearestEstrusFemale(Entity entity, BreedingState state, BreedingConfig cfg)
+        static Entity FindNearestEstrusFemale(Entity entity, BreedingState state, SpeciesConfig species)
         {
             ComponentBody body = entity.FindComponent<ComponentBody>();
             if (body == null) return null;
             Vector3 pos = body.Position;
-            float radius = cfg.SeekRadius;
+            float radius = species.SeekRadius;
 
             DynamicArray<ComponentBody> results = new();
             s_bodies.FindBodiesAroundPoint(new Vector2(pos.X, pos.Z), radius, results);
@@ -503,12 +504,11 @@ namespace Game
         /// </summary>
         static void GiveBirth(Entity mother, BreedingState motherState, SpeciesConfig species)
         {
-            BreedingConfig cfg = BreedingConfig.Current;
             ComponentBody motherBody = mother.FindComponent<ComponentBody>();
             if (motherBody == null) return;
 
             Vector3 basePos = motherBody.Position;
-            float off = cfg.BirthSpawnOffset;
+            float off = species.BirthSpawnOffset;
             Vector3 offset = new(s_random.Float(-off, off), 0f, s_random.Float(-off, off));
             Vector3 spawnPos = basePos + offset;
 
@@ -525,14 +525,14 @@ namespace Game
             {
                 cubState.Stage = GrowthStage.Cub;
                 cubState.BirthDay = s_timeOfDay.Day;
-                cubState.Gender = s_random.Bool(cfg.CubMaleProbability) ? BreedingGender.Male : BreedingGender.Female;
+                cubState.Gender = s_random.Bool(species.CubMaleProbability) ? BreedingGender.Male : BreedingGender.Female;
                 cubState.PregnancyRemainingSeconds = -1f;
                 cubState.PregnancyFatherId = 0;
                 cubState.MatingProximitySeconds = 0f;
                 cubState.WeaknessRemainingSeconds = -1f;
 
                 // 立即应用幼崽体型(成长度=0 → CubBoxScale)
-                ApplyBoxSizeByGrowth(cub, cubState, cfg, 0f);
+                ApplyBoxSizeByGrowth(cub, cubState, species, 0f);
             }
             Log.Information($"[Breeding] 分娩成功: mother={motherState.TemplateName}#{mother.Id}, cub#{cub.Id}, cubGender={(s_states.TryGetValue(cub, out var cs) ? cs.GetGenderDisplayName() : "?")}");
         }
@@ -554,8 +554,11 @@ namespace Game
             Entity attacker = miner.Entity;
             if (!s_states.TryGetValue(attacker, out BreedingState state)) return;
 
-            float stageFactor = state.Stage == GrowthStage.Cub ? cfg.CubAttackFactor : cfg.AdultAttackFactor;
-            float genderFactor = state.Gender == BreedingGender.Male ? cfg.MaleAttackBonus : 1.0f;
+            SpeciesConfig species = cfg.GetSpecies(state.TemplateName);
+            if (species == null) return;
+
+            float stageFactor = state.Stage == GrowthStage.Cub ? species.CubAttackFactor : species.AdultAttackFactor;
+            float genderFactor = state.Gender == BreedingGender.Male ? species.MaleAttackBonus : 1.0f;
             attackPower *= stageFactor * genderFactor;
 
             if (s_debugHitCounter++ % 200 == 0)
@@ -571,7 +574,7 @@ namespace Game
         /// · 发情期(非虚弱)：ChaseRange ×EstrusChaseRangeMultiplier
         /// · 其他：无额外 factor(正常仇恨)
         /// </summary>
-        static void ApplyChaseRangeFactor(ComponentFactors factors, BreedingState state, BreedingConfig cfg)
+        static void ApplyChaseRangeFactor(ComponentFactors factors, BreedingState state, SpeciesConfig species)
         {
             try
             {
@@ -613,9 +616,9 @@ namespace Game
                     list.Add(new ComponentLevel.Factor
                     {
                         Name = "Breeding.Estrus",
-                        Value = cfg.EstrusChaseRangeMultiplier,
+                        Value = species.EstrusChaseRangeMultiplier,
                         FactorAdditionType = FactorAdditionType.Multiply,
-                        Description = "发情期仇恨范围 ×" + cfg.EstrusChaseRangeMultiplier
+                        Description = "发情期仇恨范围 ×" + species.EstrusChaseRangeMultiplier
                     });
                 }
             }

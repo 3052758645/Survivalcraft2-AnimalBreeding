@@ -1,60 +1,63 @@
 {
-  "_说明": "灰狼繁殖系统配置。所有参数退出世界重进即生效，无需重新编译。详见仓库 CONFIG.md。",
+  "_说明": "动物繁殖系统配置。全局只保留总开关 Enabled，其余所有参数都按物种独立配置。详见仓库 CONFIG.md。",
 
   "Enabled": true,
-  "_Enabled": "全局开关。false 时繁殖系统完全不生效。",
-
-  "GestationSeconds": 30.0,
-  "_GestationSeconds": "孕期持续秒数(现实秒)。母狼交配成功后此秒数分娩。",
-
-  "EstrusChaseRangeMultiplier": 2.0,
-  "_EstrusChaseRangeMultiplier": "发情期仇恨范围倍率(乘到 ChaseRange factor 上)。",
-
-  "CubAttackFactor": 0.3,
-  "_CubAttackFactor": "幼崽攻击力系数(与成年基准相乘)。",
-
-  "AdultAttackFactor": 1.0,
-  "_AdultAttackFactor": "成年攻击力系数(基准1.0)。",
-
-  "MaleAttackBonus": 1.3,
-  "_MaleAttackBonus": "公狼攻击力额外倍率(母狼为1.0)。公=Adult×MaleBonus，母=Adult×1.0。",
-
-  "CubBoxScale": 0.5,
-  "_CubBoxScale": "幼崽出生时的体型缩放(相对原版模板 BoxSize/ModelScale)。",
-
-  "AdultMaleBoxScale": 1.3,
-  "_AdultMaleBoxScale": "成年公狼体型缩放(相对原版)。",
-
-  "AdultFemaleBoxScale": 1.0,
-  "_AdultFemaleBoxScale": "成年母狼体型缩放(相对原版)。",
-
-  "MateRadius": 2.0,
-  "_MateRadius": "交配判定半径(方块)。公母在此距离内持续相处才算交配。",
-
-  "SeekRadius": 20.0,
-  "_SeekRadius": "公狼寻找母狼的搜索半径(方块)。公狼发情时在此范围内寻找母狼并走过去。",
-
-  "MatingRequiredProximitySeconds": 10.0,
-  "_MatingRequiredProximitySeconds": "交配所需相处时间(现实秒)。公母在 MateRadius 内持续相处此秒数后触发交配。",
-
-  "WeaknessSeconds": 60.0,
-  "_WeaknessSeconds": "虚弱期持续秒数(现实秒)。交配/分娩后进入虚弱期，期间不处于发情状态。",
-
-  "RivalChaseTime": 30.0,
-  "_RivalChaseTime": "公狼竞争时追击竞争对手的时长(现实秒)。多公追同一母狼时互相攻击的持续时间。",
-
-  "BirthSpawnOffset": 1.5,
-  "_BirthSpawnOffset": "分娩时幼崽在母体附近的随机偏移范围(方块)。",
-
-  "CubMaleProbability": 0.5,
-  "_CubMaleProbability": "幼崽/自然生成个体的公狼概率(0~1)。0=全母，1=全公，0.5=各半。",
+  "_Enabled": "全局总开关。false 时繁殖系统完全不生效。",
 
   "Species": {
     "Wolf_Gray": {
+      "_说明": "灰狼。所有繁殖参数都在此独立设置。",
+
       "BreedingSeasons": [ "Winter" ],
+      "_BreedingSeasons": "繁殖季节。可选: Summer / Autumn / Winter / Spring。可填多个。",
+
       "CubDurationDays": 3,
-      "_说明": "灰狼。冬季发情。幼崽期3天。孕期用全局 GestationSeconds(秒)。"
-    },
-    "_Species说明": "按实体模板名索引。BreedingSeasons 可选: Summer/Autumn/Winter/Spring。CubDurationDays=幼崽期天数(游戏天)。添加新物种只需在此添加条目，代码无需改动。"
+      "_CubDurationDays": "幼崽期持续天数(游戏天)。到期后进阶成年。",
+
+      "GestationSeconds": 30.0,
+      "_GestationSeconds": "孕期持续秒数(现实秒)。母狼交配成功后此秒数分娩。",
+
+      "MatingRequiredProximitySeconds": 10.0,
+      "_MatingRequiredProximitySeconds": "交配所需相处时间(现实秒)。公母在 MateRadius 内持续相处此秒数后触发交配。",
+
+      "WeaknessSeconds": 60.0,
+      "_WeaknessSeconds": "虚弱期持续秒数(现实秒)。交配后仅公狼虚弱，分娩后母狼虚弱。",
+
+      "RivalChaseTime": 30.0,
+      "_RivalChaseTime": "公狼竞争时追击竞争对手的时长(现实秒)。",
+
+      "MateRadius": 2.0,
+      "_MateRadius": "交配判定半径(方块)。公母在此距离内持续相处才算交配。",
+
+      "SeekRadius": 20.0,
+      "_SeekRadius": "公狼寻找母狼的搜索半径(方块)。",
+
+      "BirthSpawnOffset": 1.5,
+      "_BirthSpawnOffset": "分娩时幼崽在母体附近的随机偏移范围(方块)。",
+
+      "CubAttackFactor": 0.3,
+      "_CubAttackFactor": "幼崽攻击力系数(与成年基准相乘)。",
+
+      "AdultAttackFactor": 1.0,
+      "_AdultAttackFactor": "成年攻击力系数(基准1.0)。",
+
+      "MaleAttackBonus": 1.3,
+      "_MaleAttackBonus": "公狼攻击力额外倍率(母狼为1.0)。公=Adult×MaleBonus，母=Adult×1.0。",
+
+      "CubBoxScale": 0.5,
+      "_CubBoxScale": "幼崽出生时的体型缩放(相对原版)。",
+
+      "AdultMaleBoxScale": 1.3,
+      "_AdultMaleBoxScale": "成年公狼体型缩放(相对原版)。",
+
+      "AdultFemaleBoxScale": 1.0,
+      "_AdultFemaleBoxScale": "成年母狼体型缩放(相对原版)。",
+
+      "EstrusChaseRangeMultiplier": 2.0,
+      "_EstrusChaseRangeMultiplier": "发情期仇恨范围倍率(乘到 ChaseRange factor 上)。",
+
+      "CubMaleProbability": 0.5,
+      "_CubMaleProbability": "幼崽/自然生成个体的公狼概率(0~1)。0=全母，1=全公，0.5=各半。"
+    }
   }
 }

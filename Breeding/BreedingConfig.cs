@@ -8,63 +8,16 @@ using Game;
 namespace Game
 {
     /// <summary>
-    /// 动物繁殖系统配置(简化版)。对应 MOD/Assets/BreedingConfig.json。
-    /// 机制：发情期公狼主动寻找母狼 → 相处N秒交配 → 双方虚弱期 → 母狼孕期 → 分娩 → 母狼虚弱期。
-    /// 体型(BoxSize+ModelScale)随成长度从 CubBoxScale 线性插值到成年尺寸(公大母小)。
-    /// 攻击力：幼崽×CubAttackFactor / 成年×AdultAttackFactor / 公狼额外×MaleAttackBonus。
-    /// 仇恨：幼崽/怀孕母狼不产生仇恨；公狼正常攻击玩家。
+    /// 动物繁殖系统配置。对应 MOD/Assets/BreedingConfig.json。
+    /// 全局只保留总开关 Enabled，其余所有参数都按物种独立配置(Species)。
+    /// 每个物种(Wolf_Gray 等)可自定义：孕期/体型/攻击力/交配半径/虚弱期等。
     /// </summary>
     public class BreedingConfig
     {
-        /// <summary>全局开关。</summary>
+        /// <summary>全局总开关。false 时繁殖系统完全不生效。</summary>
         public bool Enabled { get; set; } = true;
 
-        /// <summary>孕期持续秒数(现实秒)。母狼交配成功后此秒数分娩。</summary>
-        public float GestationSeconds { get; set; } = 30.0f;
-
-        /// <summary>发情期仇恨范围倍率(乘到 ChaseRange factor 上)。</summary>
-        public float EstrusChaseRangeMultiplier { get; set; } = 2.0f;
-
-        /// <summary>幼崽攻击力系数(与成年基准相乘)。</summary>
-        public float CubAttackFactor { get; set; } = 0.3f;
-
-        /// <summary>成年攻击力系数(基准1.0)。</summary>
-        public float AdultAttackFactor { get; set; } = 1.0f;
-
-        /// <summary>公狼攻击力额外倍率(母狼为1.0)。公=Adult×MaleBonus，母=Adult×1.0。</summary>
-        public float MaleAttackBonus { get; set; } = 1.3f;
-
-        /// <summary>幼崽出生时的体型缩放(相对原版模板 BoxSize/ModelScale)。</summary>
-        public float CubBoxScale { get; set; } = 0.5f;
-
-        /// <summary>成年公狼体型缩放(相对原版)。</summary>
-        public float AdultMaleBoxScale { get; set; } = 1.3f;
-
-        /// <summary>成年母狼体型缩放(相对原版)。</summary>
-        public float AdultFemaleBoxScale { get; set; } = 1.0f;
-
-        /// <summary>交配判定半径(方块)。公母在此距离内持续相处才算交配。</summary>
-        public float MateRadius { get; set; } = 2.0f;
-
-        /// <summary>公狼寻找母狼的搜索半径(方块)。公狼发情时在此范围内寻找母狼并走过去。</summary>
-        public float SeekRadius { get; set; } = 20.0f;
-
-        /// <summary>交配所需相处时间(现实秒)。公母在 MateRadius 内持续相处此秒数后触发交配。</summary>
-        public float MatingRequiredProximitySeconds { get; set; } = 10.0f;
-
-        /// <summary>虚弱期持续秒数(现实秒)。交配/分娩后进入虚弱期，期间不处于发情状态。</summary>
-        public float WeaknessSeconds { get; set; } = 60.0f;
-
-        /// <summary>公狼竞争时追击竞争对手的时长(现实秒)。</summary>
-        public float RivalChaseTime { get; set; } = 30.0f;
-
-        /// <summary>分娩时幼崽在母体附近的随机偏移范围(方块)。</summary>
-        public float BirthSpawnOffset { get; set; } = 1.5f;
-
-        /// <summary>幼崽/自然生成个体的公狼概率(0~1)。</summary>
-        public float CubMaleProbability { get; set; } = 0.5f;
-
-        /// <summary>按实体模板名索引的物种配置。</summary>
+        /// <summary>按实体模板名索引的物种配置。每个物种独立设置所有繁殖参数。</summary>
         public Dictionary<string, SpeciesConfig> Species { get; set; } = new();
 
         // ==================== 加载与缓存 ====================
@@ -95,7 +48,7 @@ namespace Game
                     kv.Value?.Normalize();
                 }
                 Current = cfg;
-                Log.Information($"[Breeding] 配置加载完成，物种数={cfg.Species.Count}，Enabled={cfg.Enabled}，GestationSeconds={cfg.GestationSeconds}，MateRadius={cfg.MateRadius}，SeekRadius={cfg.SeekRadius}，MatingProximity={cfg.MatingRequiredProximitySeconds}，Weakness={cfg.WeaknessSeconds}");
+                Log.Information($"[Breeding] 配置加载完成，物种数={cfg.Species.Count}，Enabled={cfg.Enabled}");
                 return Current;
             }
             catch (Exception e)
@@ -113,14 +66,76 @@ namespace Game
         }
     }
 
-    /// <summary>单物种繁殖配置(简化版)。</summary>
+    /// <summary>
+    /// 单物种繁殖配置。所有繁殖参数都按物种独立设置。
+    /// 这样不同生物可以有不同的孕期/体型/攻击力/交配半径等。
+    /// </summary>
     public class SpeciesConfig
     {
+        // ==================== 繁殖季节与成长 ====================
+
         /// <summary>1~2 个繁殖季节。可选: Summer / Autumn / Winter / Spring。</summary>
         public List<string> BreedingSeasons { get; set; } = new();
 
         /// <summary>幼崽期持续天数(游戏天)。到期后进阶成年。</summary>
         public float CubDurationDays { get; set; } = 3f;
+
+        // ==================== 时间参数(现实秒) ====================
+
+        /// <summary>孕期持续秒数。母体交配成功后此秒数分娩。</summary>
+        public float GestationSeconds { get; set; } = 30.0f;
+
+        /// <summary>交配所需相处时间。公母在 MateRadius 内持续相处此秒数后触发交配。</summary>
+        public float MatingRequiredProximitySeconds { get; set; } = 10.0f;
+
+        /// <summary>虚弱期持续秒数。交配后仅公体虚弱，分娩后母体虚弱。虚弱期间不发情。</summary>
+        public float WeaknessSeconds { get; set; } = 60.0f;
+
+        /// <summary>公体竞争时追击竞争对手的时长(现实秒)。</summary>
+        public float RivalChaseTime { get; set; } = 30.0f;
+
+        // ==================== 距离参数(方块) ====================
+
+        /// <summary>交配判定半径。公母在此距离内持续相处才算交配。</summary>
+        public float MateRadius { get; set; } = 2.0f;
+
+        /// <summary>公体寻找母体的搜索半径。公体发情时在此范围内寻找母体并走过去。</summary>
+        public float SeekRadius { get; set; } = 20.0f;
+
+        /// <summary>分娩时幼崽在母体附近的随机偏移范围(方块)。</summary>
+        public float BirthSpawnOffset { get; set; } = 1.5f;
+
+        // ==================== 攻击力参数 ====================
+
+        /// <summary>幼崽攻击力系数(与成年基准相乘)。</summary>
+        public float CubAttackFactor { get; set; } = 0.3f;
+
+        /// <summary>成年攻击力系数(基准1.0)。</summary>
+        public float AdultAttackFactor { get; set; } = 1.0f;
+
+        /// <summary>公体攻击力额外倍率(母体为1.0)。公=Adult×MaleBonus，母=Adult×1.0。</summary>
+        public float MaleAttackBonus { get; set; } = 1.3f;
+
+        // ==================== 体型参数 ====================
+
+        /// <summary>幼崽出生时的体型缩放(相对原版模板 BoxSize/ModelScale)。</summary>
+        public float CubBoxScale { get; set; } = 0.5f;
+
+        /// <summary>成年公体体型缩放(相对原版)。</summary>
+        public float AdultMaleBoxScale { get; set; } = 1.3f;
+
+        /// <summary>成年母体体型缩放(相对原版)。</summary>
+        public float AdultFemaleBoxScale { get; set; } = 1.0f;
+
+        // ==================== 仇恨与性别参数 ====================
+
+        /// <summary>发情期仇恨范围倍率(乘到 ChaseRange factor 上)。</summary>
+        public float EstrusChaseRangeMultiplier { get; set; } = 2.0f;
+
+        /// <summary>幼崽/自然生成个体的公体概率(0~1)。</summary>
+        public float CubMaleProbability { get; set; } = 0.5f;
+
+        // ==================== 运行时(不序列化) ====================
 
         [JsonIgnore]
         public HashSet<Season> ParsedSeasons { get; private set; } = new();
@@ -141,6 +156,11 @@ namespace Game
                 }
             }
             if (CubDurationDays <= 0f) CubDurationDays = 3f;
+            if (GestationSeconds <= 0f) GestationSeconds = 30f;
+            if (MatingRequiredProximitySeconds <= 0f) MatingRequiredProximitySeconds = 10f;
+            if (WeaknessSeconds < 0f) WeaknessSeconds = 60f;
+            if (MateRadius <= 0f) MateRadius = 2f;
+            if (SeekRadius <= 0f) SeekRadius = 20f;
         }
     }
 }

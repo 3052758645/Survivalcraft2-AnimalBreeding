@@ -181,44 +181,49 @@ scale = CubBoxScale + (成年scale - CubBoxScale) × 成长进度
 
 > 完整参数说明详见 [CONFIG.md](CONFIG.md)。
 
-### 全局参数（速览）
+### 配置结构
+
+全局只保留 `Enabled` 总开关，**其余所有参数都按物种独立配置**，这样不同生物可以有不同的孕期、体型、攻击力等。
+
+```json
+{
+  "Enabled": true,
+  "Species": {
+    "Wolf_Gray": {
+      "BreedingSeasons": [ "Winter" ],
+      "CubDurationDays": 3,
+      "GestationSeconds": 30.0,
+      "AdultMaleBoxScale": 1.3,
+      "MaleAttackBonus": 1.3,
+      ...
+    }
+  }
+}
+```
+
+### 物种参数速览（写在 `Wolf_Gray` 下）
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
-| `Enabled` | `true` | 全局开关 |
+| `BreedingSeasons` | `["Winter"]` | 繁殖季节：`Summer` / `Autumn` / `Winter` / `Spring` |
+| `CubDurationDays` | `3` | 幼崽期天数（游戏天） |
 | `GestationSeconds` | `30.0` | 孕期持续秒数（现实秒） |
-| `EstrusChaseRangeMultiplier` | `2.0` | 发情期仇恨范围倍率 |
+| `MatingRequiredProximitySeconds` | `10.0` | 交配所需相处时间（现实秒） |
+| `WeaknessSeconds` | `60.0` | 虚弱期持续秒数（现实秒） |
+| `RivalChaseTime` | `30.0` | 公狼竞争追击时长（现实秒） |
+| `MateRadius` | `2.0` | 交配判定半径（方块） |
+| `SeekRadius` | `20.0` | 公狼寻找母狼的搜索半径（方块） |
+| `BirthSpawnOffset` | `1.5` | 分娩幼崽偏移范围（方块） |
 | `CubAttackFactor` | `0.3` | 幼崽攻击力系数 |
 | `AdultAttackFactor` | `1.0` | 成年攻击力系数 |
 | `MaleAttackBonus` | `1.3` | 公狼攻击力额外倍率 |
 | `CubBoxScale` | `0.5` | 幼崽出生时体型缩放 |
 | `AdultMaleBoxScale` | `1.3` | 成年公狼体型缩放 |
 | `AdultFemaleBoxScale` | `1.0` | 成年母狼体型缩放 |
-| `MateRadius` | `2.0` | 交配判定半径（方块） |
-| `SeekRadius` | `20.0` | 公狼寻找母狼的搜索半径（方块） |
-| `MatingRequiredProximitySeconds` | `10.0` | 交配所需相处时间（现实秒） |
-| `WeaknessSeconds` | `60.0` | 虚弱期持续秒数（现实秒） |
-| `RivalChaseTime` | `30.0` | 公狼竞争追击时长（现实秒） |
-| `BirthSpawnOffset` | `1.5` | 分娩幼崽偏移范围（方块） |
+| `EstrusChaseRangeMultiplier` | `2.0` | 发情期仇恨范围倍率 |
 | `CubMaleProbability` | `0.5` | 公狼生成概率（0~1） |
 
-### 物种配置 (`Species`)
-
-```json
-"Species": {
-  "Wolf_Gray": {
-    "BreedingSeasons": [ "Winter" ],
-    "CubDurationDays": 3
-  }
-}
-```
-
-| 参数 | 说明 |
-|------|------|
-| `BreedingSeasons` | 繁殖季节：`Summer` / `Autumn` / `Winter` / `Spring` |
-| `CubDurationDays` | 幼崽期天数（游戏天），到期进阶成年 |
-
-> 添加新物种只需在 `Species` 下添加对应模板名条目，代码无需改动。
+> 添加新物种只需在 `Species` 下添加对应模板名条目，代码无需改动。每个物种可以只写需要修改的参数，未写的会用默认值。
 
 ---
 
@@ -298,7 +303,7 @@ hykj-breeding-mod/
 | [BreedingModLoader.cs](BreedingModLoader.cs) | 模组入口，注册 Hook 并处理浮动文字渲染 |
 | [Breeding/SubsystemBreeding.cs](Breeding/SubsystemBreeding.cs) | 繁殖系统核心：发情/寻路/相处/交配/孕期/分娩/成长/体型/攻击力/仇恨 |
 | [Breeding/BreedingState.cs](Breeding/BreedingState.cs) | 单只动物的运行时状态（性别/阶段/孕期/虚弱/相处计时/追求目标），含 JSON 序列化 |
-| [Breeding/BreedingConfig.cs](Breeding/BreedingConfig.cs) | 配置文件加载与缓存 |
+| [Breeding/BreedingConfig.cs](Breeding/BreedingConfig.cs) | 配置加载与缓存（全局开关 + 按物种独立配置所有繁殖参数） |
 | [MOD/Assets/BreedingConfig.json](MOD/Assets/BreedingConfig.json) | 外部配置文件 |
 | [CONFIG.md](CONFIG.md) | 配置参数详细文档 |
 

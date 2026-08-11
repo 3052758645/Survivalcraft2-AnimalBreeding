@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using GameEntitySystem;
@@ -138,7 +139,11 @@ namespace Game
         {
             try
             {
-                return JsonSerializer.Serialize(this);
+                string json = JsonSerializer.Serialize(this);
+                // 用 Base64 编码避免 JSON 中的逗号破坏 SpawnEntityData 的逗号分隔格式
+                // (SubsystemSpawn.LoadSpawnsData/SaveSpawnsData 用 ',' 分隔字段)
+                byte[] bytes = Encoding.UTF8.GetBytes(json);
+                return Convert.ToBase64String(bytes);
             }
             catch (Exception e)
             {
@@ -152,8 +157,20 @@ namespace Game
             if (string.IsNullOrEmpty(data)) return null;
             try
             {
+                string json;
+                // 优先尝试 Base64 解码(新格式)
+                try
+                {
+                    byte[] bytes = Convert.FromBase64String(data);
+                    json = Encoding.UTF8.GetString(bytes);
+                }
+                catch
+                {
+                    // 兼容旧格式(直接 JSON，可能因逗号被截断而无效)
+                    json = data;
+                }
                 JsonSerializerOptions opts = new() { PropertyNameCaseInsensitive = true };
-                return JsonSerializer.Deserialize<BreedingState>(data, opts);
+                return JsonSerializer.Deserialize<BreedingState>(json, opts);
             }
             catch (Exception e)
             {
