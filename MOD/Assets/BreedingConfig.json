@@ -1,158 +1,31 @@
 {
   "Enabled": true,
-  "Comment": "荒野科技-动物繁殖系统配置。所有属性以配置文件方式存在，可在运行时调整。Species 字典按实体模板名(如 Wolf_Gray)索引，缺失的物种不参与繁殖。",
+  "Comment": "灰狼繁殖测试配置。机制最简化：发情期母狼与附近发情公狼交配 → 孕期几十秒 → 生小狼。体型由成长度决定(越大)，公狼体型与属性更高。",
 
-  "PregnancyCooldownDays": 1.0,
-  "Comment_PregnancyCooldownDays": "母体成功分娩后的再次怀孕冷却(游戏天)。避免一只母兽被刷爆。",
+  "GestationSeconds": 30.0,
+  "Comment_GestationSeconds": "孕期持续秒数(现实秒，测试用)。母狼交配成功后此秒数分娩。",
 
-  "DefaultPregnancySuccessRate": 0.7,
-  "Comment_DefaultPregnancySuccessRate": "默认怀孕成功率(0~1)。通过三选一失败检测后以此概率判定。",
-
-  "LowHealthThreshold": 0.4,
-  "Comment_LowHealthThreshold": "母体血量低于此比例(0~1, Health 是 0~1 归一化值) → 怀孕失败。",
-
-  "LowHealthAttackThreshold": 0.3,
-  "Comment_LowHealthAttackThreshold": "残血攻击力修正触发线。生物当前 Health < 此值 → 攻击力 ×0.5。",
-
-  "TemperatureDeviationThreshold": 0.4,
-  "HumidityDeviationThreshold": 0.4,
-  "Comment_DeviationThreshold": "温/湿度归一化(0~1)后与最适值差值 > 阈值 → 怀孕失败 / 幼崽夭折判定条件之一。",
-
-  "DensityRadius": 15,
-  "DensityMaxAdults": 8,
-  "Comment_Density": "以母体为中心 DensityRadius×DensityRadius 范围内同类成年个体 > DensityMaxAdults → 怀孕失败(密度过高)。",
-
-  "CubSurvivalCheckRadius": 10,
-  "CubDailyDeathProbability": 0.3,
-  "Comment_CubSurvival": "幼崽期每天判定一次：周围 CubSurvivalCheckRadius×CubSurvivalCheckRadius 内无窝/食物源 或 温湿度不适 → CubDailyDeathProbability 概率夭折。",
+  "EstrusChaseRangeMultiplier": 2.0,
+  "Comment_EstrusChaseRangeMultiplier": "发情期仇恨范围倍率(乘到 ChaseRange factor 上)。",
 
   "CubAttackFactor": 0.3,
   "AdultAttackFactor": 1.0,
-  "Comment_AttackFactor": "成长阶段攻击力系数。幼崽 = 成年基准 × CubAttackFactor；成年 = 成年基准 × AdultAttackFactor。",
+  "MaleAttackBonus": 1.3,
+  "Comment_Attack": "攻击力系数：幼崽×CubAttackFactor / 成年×AdultAttackFactor / 公狼额外×MaleAttackBonus(母狼为1.0)",
 
-  "EstrusAttackFactor": 0.5,
-  "Comment_EstrusAttackFactor": "发情期(繁殖季内)攻击力系数，与成长系数相乘。",
+  "CubBoxScale": 0.5,
+  "AdultMaleBoxScale": 1.1,
+  "AdultFemaleBoxScale": 1.0,
+  "Comment_BoxScale": "体型缩放：幼崽出生时=CubBoxScale(相对原版)；成年公狼=AdultMaleBoxScale；成年母狼=AdultFemaleBoxScale。成长过程中体型随成长度从 CubBoxScale 线性插值到成年尺寸。",
 
-  "LowHealthAttackFactor": 0.5,
-  "Comment_LowHealthAttackFactor": "残血(<LowHealthAttackThreshold)攻击力系数，与成长系数+发情系数相乘。",
-
-  "EstrusChaseRangeMultiplier": 2.0,
-  "Comment_EstrusChaseRangeMultiplier": "发情期仇恨范围倍率(乘到 ChaseRange factor 上)。会主动追玩家。",
-
-  "InbreedingEnabled": true,
-  "RecentMatesLimit": 3,
-  "Comment_Inbreeding": "近亲检测：只追溯父母双方 ID，有共同父母 → 交配失败。重复配对：记录最近 RecentMatesLimit 次成功交配对象，命中 → 失败(它们腻了)。",
+  "MateRadius": 12.0,
+  "Comment_MateRadius": "寻找异性交配对象的半径(方块)。",
 
   "Species": {
     "Wolf_Gray": {
       "BreedingSeasons": [ "Winter" ],
-      "OptimalTemperature": 0.5,
-      "OptimalHumidity": 0.5,
       "CubDurationDays": 3,
-      "CubTemplate": "Wolf_Gray_Cub",
-      "CubBoxSize": [ 0.5, 0.5, 0.5 ],
-      "AdultBoxSize": [ 1.0, 1.0, 1.0 ],
-      "NestBlocks": [ "Grass", "TallGrass", "Leaves" ]
-    },
-    "Wolf_Coyote": {
-      "BreedingSeasons": [ "Spring", "Autumn" ],
-      "OptimalTemperature": 0.5,
-      "OptimalHumidity": 0.5,
-      "CubDurationDays": 3,
-      "CubTemplate": "Wolf_Coyote_Cub",
-      "CubBoxSize": [ 0.5, 0.5, 0.5 ],
-      "AdultBoxSize": [ 1.0, 1.0, 1.0 ],
-      "NestBlocks": [ "Grass", "TallGrass", "Leaves" ]
-    },
-    "Cow_Brown": {
-      "BreedingSeasons": [ "Spring", "Autumn" ],
-      "OptimalTemperature": 0.6,
-      "OptimalHumidity": 0.5,
-      "CubDurationDays": 3,
-      "CubTemplate": "Cow_Brown_Cub",
-      "CubBoxSize": [ 0.6, 0.6, 0.6 ],
-      "AdultBoxSize": [ 1.0, 1.0, 1.0 ],
-      "NestBlocks": [ "Grass", "TallGrass", "Leaves" ]
-    },
-    "Cow_Black": {
-      "BreedingSeasons": [ "Spring", "Autumn" ],
-      "OptimalTemperature": 0.6,
-      "OptimalHumidity": 0.5,
-      "CubDurationDays": 3,
-      "CubTemplate": "Cow_Black_Cub",
-      "CubBoxSize": [ 0.6, 0.6, 0.6 ],
-      "AdultBoxSize": [ 1.0, 1.0, 1.0 ],
-      "NestBlocks": [ "Grass", "TallGrass", "Leaves" ]
-    },
-    "Bull_Brown": {
-      "BreedingSeasons": [ "Spring", "Autumn" ],
-      "OptimalTemperature": 0.6,
-      "OptimalHumidity": 0.5,
-      "CubDurationDays": 3,
-      "CubTemplate": "Bull_Brown_Cub",
-      "CubBoxSize": [ 0.6, 0.6, 0.6 ],
-      "AdultBoxSize": [ 1.0, 1.0, 1.0 ],
-      "NestBlocks": [ "Grass", "TallGrass", "Leaves" ]
-    },
-    "Bull_Black": {
-      "BreedingSeasons": [ "Spring", "Autumn" ],
-      "OptimalTemperature": 0.6,
-      "OptimalHumidity": 0.5,
-      "CubDurationDays": 3,
-      "CubTemplate": "Bull_Black_Cub",
-      "CubBoxSize": [ 0.6, 0.6, 0.6 ],
-      "AdultBoxSize": [ 1.0, 1.0, 1.0 ],
-      "NestBlocks": [ "Grass", "TallGrass", "Leaves" ]
-    },
-    "Horse_Black": {
-      "BreedingSeasons": [ "Spring" ],
-      "OptimalTemperature": 0.6,
-      "OptimalHumidity": 0.5,
-      "CubDurationDays": 3,
-      "CubTemplate": "Horse_Black_Cub",
-      "CubBoxSize": [ 0.7, 0.7, 0.7 ],
-      "AdultBoxSize": [ 1.0, 1.0, 1.0 ],
-      "NestBlocks": [ "Grass", "TallGrass" ]
-    },
-    "Horse_Bay": {
-      "BreedingSeasons": [ "Spring" ],
-      "OptimalTemperature": 0.6,
-      "OptimalHumidity": 0.5,
-      "CubDurationDays": 3,
-      "CubTemplate": "Horse_Bay_Cub",
-      "CubBoxSize": [ 0.7, 0.7, 0.7 ],
-      "AdultBoxSize": [ 1.0, 1.0, 1.0 ],
-      "NestBlocks": [ "Grass", "TallGrass" ]
-    },
-    "Horse_Chestnut": {
-      "BreedingSeasons": [ "Spring" ],
-      "OptimalTemperature": 0.6,
-      "OptimalHumidity": 0.5,
-      "CubDurationDays": 3,
-      "CubTemplate": "Horse_Chestnut_Cub",
-      "CubBoxSize": [ 0.7, 0.7, 0.7 ],
-      "AdultBoxSize": [ 1.0, 1.0, 1.0 ],
-      "NestBlocks": [ "Grass", "TallGrass" ]
-    },
-    "Horse_Palomino": {
-      "BreedingSeasons": [ "Spring" ],
-      "OptimalTemperature": 0.6,
-      "OptimalHumidity": 0.5,
-      "CubDurationDays": 3,
-      "CubTemplate": "Horse_Palomino_Cub",
-      "CubBoxSize": [ 0.7, 0.7, 0.7 ],
-      "AdultBoxSize": [ 1.0, 1.0, 1.0 ],
-      "NestBlocks": [ "Grass", "TallGrass" ]
-    },
-    "Horse_White": {
-      "BreedingSeasons": [ "Spring" ],
-      "OptimalTemperature": 0.6,
-      "OptimalHumidity": 0.5,
-      "CubDurationDays": 3,
-      "CubTemplate": "Horse_White_Cub",
-      "CubBoxSize": [ 0.7, 0.7, 0.7 ],
-      "AdultBoxSize": [ 1.0, 1.0, 1.0 ],
-      "NestBlocks": [ "Grass", "TallGrass" ]
+      "Comment": "灰狼。冬季发情。幼崽期3天。孕期用全局 GestationSeconds(秒)。"
     }
   }
 }

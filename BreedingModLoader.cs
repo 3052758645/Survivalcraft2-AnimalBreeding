@@ -165,7 +165,7 @@ namespace Game
             Vector3 vector2 = Vector3.Transform(line2Pos, camera.ViewMatrix);
             if (vector2.Z < 0f)
             {
-                string line2 = state.GetStageDisplayName() + " | " + state.GetBreedingStatus(currentDay);
+                string line2 = state.GetStageDisplayName() + " | " + state.GetBreedingStatus();
                 fontBatch.QueueText(line2, vector2, right, down, color * 0.85f, TextAnchor.HorizontalCenter | TextAnchor.Bottom);
             }
 
