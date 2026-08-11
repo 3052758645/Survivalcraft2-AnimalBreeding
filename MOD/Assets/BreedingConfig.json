@@ -1,6 +1,6 @@
 {
   "Enabled": true,
-  "Comment": "灰狼繁殖测试配置。机制最简化：发情期母狼与附近发情公狼交配 → 孕期几十秒 → 生小狼。体型由成长度决定(越大)，公狼体型与属性更高。",
+  "Comment": "灰狼繁殖测试配置。发情期公狼主动寻找母狼 → 相处10秒交配 → 双方虚弱60秒 → 母狼孕期30秒 → 分娩 → 母狼虚弱60秒。体型由成长度决定(越大)，公狼体型与属性更高。",
 
   "GestationSeconds": 30.0,
   "Comment_GestationSeconds": "孕期持续秒数(现实秒，测试用)。母狼交配成功后此秒数分娩。",
@@ -14,12 +14,21 @@
   "Comment_Attack": "攻击力系数：幼崽×CubAttackFactor / 成年×AdultAttackFactor / 公狼额外×MaleAttackBonus(母狼为1.0)",
 
   "CubBoxScale": 0.5,
-  "AdultMaleBoxScale": 1.1,
+  "AdultMaleBoxScale": 1.3,
   "AdultFemaleBoxScale": 1.0,
-  "Comment_BoxScale": "体型缩放：幼崽出生时=CubBoxScale(相对原版)；成年公狼=AdultMaleBoxScale；成年母狼=AdultFemaleBoxScale。成长过程中体型随成长度从 CubBoxScale 线性插值到成年尺寸。",
+  "Comment_BoxScale": "体型缩放：幼崽出生时=CubBoxScale(相对原版)；成年公狼=AdultMaleBoxScale；成年母狼=AdultFemaleBoxScale。成长过程中体型(BoxSize+ModelScale)随成长度从 CubBoxScale 线性插值到成年尺寸。",
 
-  "MateRadius": 12.0,
-  "Comment_MateRadius": "寻找异性交配对象的半径(方块)。",
+  "MateRadius": 2.0,
+  "Comment_MateRadius": "交配判定半径(方块)。公母在此距离内持续相处才算交配。",
+
+  "SeekRadius": 20.0,
+  "Comment_SeekRadius": "公狼寻找母狼的搜索半径(方块)。公狼发情时在此范围内寻找母狼并走过去。",
+
+  "MatingRequiredProximitySeconds": 10.0,
+  "Comment_MatingRequiredProximitySeconds": "交配所需相处时间(现实秒)。公母在 MateRadius 内持续相处此秒数后触发交配。",
+
+  "WeaknessSeconds": 60.0,
+  "Comment_WeaknessSeconds": "虚弱期持续秒数(现实秒)。交配/分娩后进入虚弱期，期间不处于发情状态。",
 
   "Species": {
     "Wolf_Gray": {

@@ -28,8 +28,10 @@ namespace Game
     ///
     /// 机制：
     /// · 成长度 0~1，幼崽期从 0 线性增长到 1，成年后恒为 1。
-    /// · 体型随成长度从 CubBoxScale 插值到成年尺寸(公 AdultMaleBoxScale / 母 AdultFemaleBoxScale)。
+    /// · 体型(BoxSize+ModelScale)随成长度从 CubBoxScale 插值到成年尺寸。
     /// · 母体怀孕用 PregnancyRemainingSeconds(现实秒倒计时)，到期分娩。
+    /// · 公母交配需相处 MatingRequiredProximitySeconds 秒，交配后双方进入虚弱期。
+    /// · 虚弱期不处于发情状态；分娩后母体也进入虚弱期。
     /// </summary>
     public class BreedingState
     {
@@ -51,9 +53,15 @@ namespace Game
         /// <summary>母体：胎儿父亲实体 Id(仅记录)。</summary>
         public int PregnancyFatherId { get; set; }
 
+        /// <summary>母体：与公狼相处计时(现实秒)。公狼在 MateRadius 内时累加，达到阈值触发交配。</summary>
+        public float MatingProximitySeconds { get; set; }
+
+        /// <summary>虚弱期剩余秒数(现实秒)。<=0 表示非虚弱。交配/分娩后设为 WeaknessSeconds。</summary>
+        public float WeaknessRemainingSeconds { get; set; } = -1f;
+
         // ==================== 运行时(不序列化) ====================
 
-        /// <summary>是否处于繁殖季节(由 SubsystemBreeding 每帧设置)。</summary>
+        /// <summary>是否处于发情期(由 SubsystemBreeding 每帧设置：在繁殖季节且不在虚弱期)。</summary>
         [JsonIgnore]
         public bool IsInEstrus { get; set; }
 
@@ -61,9 +69,17 @@ namespace Game
         [JsonIgnore]
         public bool IsAdult => Stage == GrowthStage.Adult;
 
+        /// <summary>是否处于虚弱期。</summary>
+        [JsonIgnore]
+        public bool IsWeak => WeaknessRemainingSeconds > 0f;
+
         /// <summary>原版模板 BoxSize 缓存(第一次应用体型时保存，用于按成长度缩放)。</summary>
         [JsonIgnore]
         public Vector3? OriginalBoxSize { get; set; }
+
+        /// <summary>原版模板 ModelScale 缓存(第一次应用体型时保存，用于按成长度缩放视觉模型)。</summary>
+        [JsonIgnore]
+        public float? OriginalModelScale { get; set; }
 
         // ==================== 派生查询 ====================
 
@@ -91,11 +107,22 @@ namespace Game
         /// <summary>繁殖状态简述(渲染显示用)。</summary>
         public string GetBreedingStatus()
         {
+            if (IsWeak)
+            {
+                return $"虚弱中({WeaknessRemainingSeconds:F0}秒)";
+            }
             if (Gender == BreedingGender.Female && PregnancyRemainingSeconds > 0f)
             {
                 return $"怀孕中({PregnancyRemainingSeconds:F0}秒)";
             }
-            if (IsInEstrus) return "发情中";
+            if (IsInEstrus)
+            {
+                if (Gender == BreedingGender.Female && MatingProximitySeconds > 0f)
+                {
+                    return $"发情中(相处{MatingProximitySeconds:F0}秒)";
+                }
+                return "发情中";
+            }
             if (IsAdult) return "未在季";
             return "成长中";
         }

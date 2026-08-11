@@ -9,16 +9,17 @@ namespace Game
 {
     /// <summary>
     /// 动物繁殖系统配置(简化版)。对应 MOD/Assets/BreedingConfig.json。
-    /// 机制最简化：发情期异性相遇 → 交配 → 孕期N秒 → 分娩。
-    /// 体型随成长度从 CubBoxScale 线性插值到成年尺寸(公大母小)。
+    /// 机制：发情期公狼主动寻找母狼 → 相处N秒交配 → 双方虚弱期 → 母狼孕期 → 分娩 → 母狼虚弱期。
+    /// 体型(BoxSize+ModelScale)随成长度从 CubBoxScale 线性插值到成年尺寸(公大母小)。
     /// 攻击力：幼崽×CubAttackFactor / 成年×AdultAttackFactor / 公狼额外×MaleAttackBonus。
+    /// 仇恨：幼崽/怀孕母狼不产生仇恨；公狼正常攻击玩家。
     /// </summary>
     public class BreedingConfig
     {
         /// <summary>全局开关。</summary>
         public bool Enabled { get; set; } = true;
 
-        /// <summary>孕期持续秒数(现实秒，测试用)。母体交配成功后此秒数分娩。</summary>
+        /// <summary>孕期持续秒数(现实秒)。母狼交配成功后此秒数分娩。</summary>
         public float GestationSeconds { get; set; } = 30.0f;
 
         /// <summary>发情期仇恨范围倍率(乘到 ChaseRange factor 上)。</summary>
@@ -33,17 +34,26 @@ namespace Game
         /// <summary>公狼攻击力额外倍率(母狼为1.0)。公=Adult×MaleBonus，母=Adult×1.0。</summary>
         public float MaleAttackBonus { get; set; } = 1.3f;
 
-        /// <summary>幼崽出生时的体型缩放(相对原版模板 BoxSize)。</summary>
+        /// <summary>幼崽出生时的体型缩放(相对原版模板 BoxSize/ModelScale)。</summary>
         public float CubBoxScale { get; set; } = 0.5f;
 
         /// <summary>成年公狼体型缩放(相对原版)。</summary>
-        public float AdultMaleBoxScale { get; set; } = 1.1f;
+        public float AdultMaleBoxScale { get; set; } = 1.3f;
 
         /// <summary>成年母狼体型缩放(相对原版)。</summary>
         public float AdultFemaleBoxScale { get; set; } = 1.0f;
 
-        /// <summary>寻找异性交配对象的半径(方块)。</summary>
-        public float MateRadius { get; set; } = 12.0f;
+        /// <summary>交配判定半径(方块)。公母在此距离内持续相处才算交配。</summary>
+        public float MateRadius { get; set; } = 2.0f;
+
+        /// <summary>公狼寻找母狼的搜索半径(方块)。公狼发情时在此范围内寻找母狼并走过去。</summary>
+        public float SeekRadius { get; set; } = 20.0f;
+
+        /// <summary>交配所需相处时间(现实秒)。公母在 MateRadius 内持续相处此秒数后触发交配。</summary>
+        public float MatingRequiredProximitySeconds { get; set; } = 10.0f;
+
+        /// <summary>虚弱期持续秒数(现实秒)。交配/分娩后进入虚弱期，期间不处于发情状态。</summary>
+        public float WeaknessSeconds { get; set; } = 60.0f;
 
         /// <summary>按实体模板名索引的物种配置。</summary>
         public Dictionary<string, SpeciesConfig> Species { get; set; } = new();
@@ -76,7 +86,7 @@ namespace Game
                     kv.Value?.Normalize();
                 }
                 Current = cfg;
-                Log.Information($"[Breeding] 配置加载完成，物种数={cfg.Species.Count}，Enabled={cfg.Enabled}，GestationSeconds={cfg.GestationSeconds}");
+                Log.Information($"[Breeding] 配置加载完成，物种数={cfg.Species.Count}，Enabled={cfg.Enabled}，GestationSeconds={cfg.GestationSeconds}，MateRadius={cfg.MateRadius}，SeekRadius={cfg.SeekRadius}，MatingProximity={cfg.MatingRequiredProximitySeconds}，Weakness={cfg.WeaknessSeconds}");
                 return Current;
             }
             catch (Exception e)
