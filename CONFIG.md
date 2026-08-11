@@ -103,9 +103,48 @@
 
 ---
 
-## 四、添加新物种
+## 四、已支持的物种
 
-只需在 `Species` 下添加对应模板名条目，代码无需改动。例如同时配置灰狼和牛：
+模组开箱即用支持以下物种（模板名必须与 `Database.xml` 完全一致）：
+
+| 模板名 | 中文 | 繁殖季节 | 幼崽期 | 孕期 | 体型(公/母) | 攻击力倍率(公/母) | 备注 |
+|--------|------|---------|--------|------|------------|------------------|------|
+| `Wolf_Gray` | 灰狼 | 冬季 | 3 天 | 30 秒 | 1.3× / 1.0× | 1.3× / 1.0× | 发情期仇恨 ×2，攻击性强 |
+| `Horse_Black` | 黑马 | 春季 | 5 天 | 60 秒 | 1.1× / 1.0× | 0.6× / 0.5× | 温顺草食，公马会争母马 |
+| `Horse_Bay` | 栗色马 | 春季 | 5 天 | 60 秒 | 1.1× / 1.0× | 0.6× / 0.5× | 同上 |
+| `Horse_Chestnut` | 红栗色马 | 春季 | 5 天 | 60 秒 | 1.1× / 1.0× | 0.6× / 0.5× | 同上 |
+| `Horse_Palomino` | 金色马(热带) | 春季 | 5 天 | 60 秒 | 1.1× / 1.0× | 0.6× / 0.5× | 同上 |
+| `Horse_White` | 白马(寒带) | 春季 | 5 天 | 60 秒 | 1.1× / 1.0× | 0.6× / 0.5× | 同上 |
+
+> **马变种说明**：游戏会自然生成 5 个马变种（`Horse_Black`/`Horse_Bay`/`Horse_Chestnut`/`Horse_Palomino`/`Horse_White`），带鞍的 `*_Saddled` 是玩家驯服后产生的，不参与自然繁殖。**不同变种之间不能交配**（白马只和白马、黑马只和黑马），幼崽沿用母体变种，不会混血。
+> **马的特点**：温顺草食动物，发情期不会主动追玩家（`EstrusChaseRangeMultiplier=1.0`）；公马之间会为争夺母马打斗（保留 `RivalChaseTime`）；孕期比狼长（60 秒 vs 30 秒），幼崽期也更长（5 天 vs 3 天）。
+
+### 灰狼 vs 马 默认参数对比
+
+| 参数 | 灰狼 | 马 | 说明 |
+|------|------|-----|------|
+| `BreedingSeasons` | `["Winter"]` | `["Spring"]` | 狼冬季发情，马春季发情 |
+| `CubDurationDays` | 3 | 5 | 马驹成长更慢 |
+| `GestationSeconds` | 30 | 60 | 马孕期是狼的 2 倍 |
+| `MatingRequiredProximitySeconds` | 10 | 12 | 马需要更长相处时间 |
+| `WeaknessSeconds` | 60 | 90 | 马虚弱期更长 |
+| `MateRadius` | 2.0 | 2.5 | 马体型大，交配半径稍大 |
+| `SeekRadius` | 20.0 | 24.0 | 马寻路范围稍大 |
+| `CubAttackFactor` | 0.3 | 0.2 | 马驹更弱 |
+| `AdultAttackFactor` | 1.0 | 0.5 | 马是温顺动物，攻击力减半 |
+| `MaleAttackBonus` | 1.3 | 1.2 | 公马略强于母马 |
+| `CubBoxScale` | 0.5 | 0.5 | 出生都是成体一半 |
+| `AdultMaleBoxScale` | 1.3 | 1.1 | 公狼明显大于母狼，公马只略大 |
+| `AdultFemaleBoxScale` | 1.0 | 1.0 | 母体保持原版体型 |
+| `EstrusChaseRangeMultiplier` | 2.0 | 1.0 | 狼发情期更激进，马不变 |
+| `CubMaleProbability` | 0.5 | 0.5 | 公母概率各半 |
+| `RivalChaseTime` | 30 | 30 | 公体竞争追击时长相同 |
+
+---
+
+## 五、添加新物种
+
+只需在 `Species` 下添加对应模板名条目，代码无需改动。例如同时配置灰狼和马：
 
 ```json
 {
@@ -118,12 +157,12 @@
       "AdultMaleBoxScale": 1.3,
       "MaleAttackBonus": 1.3
     },
-    "Cow": {
-      "BreedingSeasons": [ "Spring", "Summer" ],
-      "CubDurationDays": 2,
+    "Horse_White": {
+      "BreedingSeasons": [ "Spring" ],
+      "CubDurationDays": 5,
       "GestationSeconds": 60.0,
       "AdultMaleBoxScale": 1.1,
-      "MaleAttackBonus": 1.0,
+      "MaleAttackBonus": 1.2,
       "CubAttackFactor": 0.2,
       "AdultAttackFactor": 0.5
     }
@@ -131,12 +170,12 @@
 }
 ```
 
-> 模板名必须与 `Database.xml` 中的生物模板名完全一致（如 `Wolf_Gray`、`Cow`、`Hyena` 等）。
+> 模板名必须与 `Database.xml` 中的生物模板名完全一致（如 `Wolf_Gray`、`Horse_White`、`Hyena` 等）。
 > 每个物种可以只写需要修改的参数，未写的会用默认值。
 
 ---
 
-## 五、完整配置示例
+## 六、完整配置示例
 
 ```json
 {
@@ -167,7 +206,7 @@
 
 ---
 
-## 六、常见调参场景
+## 七、常见调参场景
 
 ### 1. 加快灰狼测试速度
 
@@ -216,9 +255,26 @@
 }
 ```
 
+### 4. 加快马的测试速度
+
+让所有马变种全年发情、快速繁殖，方便观察马驹成长：
+
+```json
+{
+  "Enabled": true,
+  "Species": {
+    "Horse_Black":   { "BreedingSeasons": [ "Spring", "Summer", "Autumn", "Winter" ], "CubDurationDays": 0.5, "GestationSeconds": 15.0, "MatingRequiredProximitySeconds": 3.0, "WeaknessSeconds": 15.0 },
+    "Horse_Bay":     { "BreedingSeasons": [ "Spring", "Summer", "Autumn", "Winter" ], "CubDurationDays": 0.5, "GestationSeconds": 15.0, "MatingRequiredProximitySeconds": 3.0, "WeaknessSeconds": 15.0 },
+    "Horse_Chestnut":{ "BreedingSeasons": [ "Spring", "Summer", "Autumn", "Winter" ], "CubDurationDays": 0.5, "GestationSeconds": 15.0, "MatingRequiredProximitySeconds": 3.0, "WeaknessSeconds": 15.0 },
+    "Horse_Palomino":{ "BreedingSeasons": [ "Spring", "Summer", "Autumn", "Winter" ], "CubDurationDays": 0.5, "GestationSeconds": 15.0, "MatingRequiredProximitySeconds": 3.0, "WeaknessSeconds": 15.0 },
+    "Horse_White":   { "BreedingSeasons": [ "Spring", "Summer", "Autumn", "Winter" ], "CubDurationDays": 0.5, "GestationSeconds": 15.0, "MatingRequiredProximitySeconds": 3.0, "WeaknessSeconds": 15.0 }
+  }
+}
+```
+
 ---
 
-## 七、配置加载机制
+## 八、配置加载机制
 
 - **加载时机**：`OnProjectLoaded` 钩子中调用 `BreedingConfig.Load()`，即世界加载完成时。
 - **加载方式**：通过 `ContentManager.Get<string>("BreedingConfig", ".json")` 读取 `MOD/Assets/BreedingConfig.json`。
@@ -233,7 +289,7 @@
 
 ---
 
-## 八、参数与代码对应关系
+## 九、参数与代码对应关系
 
 | 配置参数 | 代码位置 | 用途 |
 |---------|---------|------|

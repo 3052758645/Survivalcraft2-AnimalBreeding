@@ -58,6 +58,12 @@
 
       "CubMaleProbability": 0.5,
       "_CubMaleProbability": "幼崽/自然生成个体的公狼概率(0~1)。0=全母，1=全公，0.5=各半。"
-    }
+    },
+
+    "Horse_Black":   { "_说明": "黑马。温顺草食动物，春季发情，公马会为争夺母马打斗。", "BreedingSeasons": [ "Spring" ], "CubDurationDays": 5, "GestationSeconds": 60.0, "MatingRequiredProximitySeconds": 12.0, "WeaknessSeconds": 90.0, "RivalChaseTime": 30.0, "MateRadius": 2.5, "SeekRadius": 24.0, "BirthSpawnOffset": 1.5, "CubAttackFactor": 0.2, "AdultAttackFactor": 0.5, "MaleAttackBonus": 1.2, "CubBoxScale": 0.5, "AdultMaleBoxScale": 1.1, "AdultFemaleBoxScale": 1.0, "EstrusChaseRangeMultiplier": 1.0, "CubMaleProbability": 0.5 },
+    "Horse_Bay":     { "_说明": "栗色马。温顺草食动物，春季发情，公马会为争夺母马打斗。", "BreedingSeasons": [ "Spring" ], "CubDurationDays": 5, "GestationSeconds": 60.0, "MatingRequiredProximitySeconds": 12.0, "WeaknessSeconds": 90.0, "RivalChaseTime": 30.0, "MateRadius": 2.5, "SeekRadius": 24.0, "BirthSpawnOffset": 1.5, "CubAttackFactor": 0.2, "AdultAttackFactor": 0.5, "MaleAttackBonus": 1.2, "CubBoxScale": 0.5, "AdultMaleBoxScale": 1.1, "AdultFemaleBoxScale": 1.0, "EstrusChaseRangeMultiplier": 1.0, "CubMaleProbability": 0.5 },
+    "Horse_Chestnut":{ "_说明": "红栗色马。温顺草食动物，春季发情，公马会为争夺母马打斗。", "BreedingSeasons": [ "Spring" ], "CubDurationDays": 5, "GestationSeconds": 60.0, "MatingRequiredProximitySeconds": 12.0, "WeaknessSeconds": 90.0, "RivalChaseTime": 30.0, "MateRadius": 2.5, "SeekRadius": 24.0, "BirthSpawnOffset": 1.5, "CubAttackFactor": 0.2, "AdultAttackFactor": 0.5, "MaleAttackBonus": 1.2, "CubBoxScale": 0.5, "AdultMaleBoxScale": 1.1, "AdultFemaleBoxScale": 1.0, "EstrusChaseRangeMultiplier": 1.0, "CubMaleProbability": 0.5 },
+    "Horse_Palomino":{ "_说明": "金色马(热带)。温顺草食动物，春季发情，公马会为争夺母马打斗。", "BreedingSeasons": [ "Spring" ], "CubDurationDays": 5, "GestationSeconds": 60.0, "MatingRequiredProximitySeconds": 12.0, "WeaknessSeconds": 90.0, "RivalChaseTime": 30.0, "MateRadius": 2.5, "SeekRadius": 24.0, "BirthSpawnOffset": 1.5, "CubAttackFactor": 0.2, "AdultAttackFactor": 0.5, "MaleAttackBonus": 1.2, "CubBoxScale": 0.5, "AdultMaleBoxScale": 1.1, "AdultFemaleBoxScale": 1.0, "EstrusChaseRangeMultiplier": 1.0, "CubMaleProbability": 0.5 },
+    "Horse_White":   { "_说明": "白马(寒带)。温顺草食动物，春季发情，公马会为争夺母马打斗。", "BreedingSeasons": [ "Spring" ], "CubDurationDays": 5, "GestationSeconds": 60.0, "MatingRequiredProximitySeconds": 12.0, "WeaknessSeconds": 90.0, "RivalChaseTime": 30.0, "MateRadius": 2.5, "SeekRadius": 24.0, "BirthSpawnOffset": 1.5, "CubAttackFactor": 0.2, "AdultAttackFactor": 0.5, "MaleAttackBonus": 1.2, "CubBoxScale": 0.5, "AdultMaleBoxScale": 1.1, "AdultFemaleBoxScale": 1.0, "EstrusChaseRangeMultiplier": 1.0, "CubMaleProbability": 0.5 }
   }
 }
