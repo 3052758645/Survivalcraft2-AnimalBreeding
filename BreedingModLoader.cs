@@ -42,7 +42,7 @@ namespace Game
                 SubsystemDrawing drawing = project.FindSubsystem<SubsystemDrawing>(false);
                 if (drawing == null)
                 {
-                    Log.Warning("[HYKJ.BreedingMod] SubsystemDrawing 未就绪，渲染器延迟到下次 OnProjectLoaded 再注册");
+                    Log.Warning("[BreedingMod] SubsystemDrawing 未就绪，渲染器延迟到下次 OnProjectLoaded 再注册");
                     return;
                 }
                 if (m_renderer == null)
@@ -51,11 +51,11 @@ namespace Game
                 }
                 drawing.AddDrawable(m_renderer);
                 SubsystemBreeding.RendererRegistered = true;
-                Log.Information("[HYKJ.BreedingMod] 繁殖状态浮动文字渲染器已注册到 SubsystemDrawing");
+                Log.Information("[BreedingMod] 繁殖状态浮动文字渲染器已注册到 SubsystemDrawing");
             }
             catch (Exception e)
             {
-                Log.Warning("[HYKJ.BreedingMod] 注册渲染器失败: " + e.Message);
+                Log.Warning("[BreedingMod] 注册渲染器失败: " + e.Message);
             }
         }
 

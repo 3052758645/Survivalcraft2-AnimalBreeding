@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Engine;
 using Engine.Graphics;
@@ -6,7 +6,7 @@ using Engine.Media;
 using GameEntitySystem;
 using Game;
 
-namespace HYKJ.Breeding
+namespace Game
 {
     /// <summary>
     /// 动物繁殖状态浮动文字渲染器(全局 IDrawable)。
@@ -117,7 +117,7 @@ namespace HYKJ.Breeding
                 catch (Exception e)
                 {
                     // 单只动物绘制异常不影响其他动物(节流日志避免刷屏)
-                    Log.Warning($"[HYKJ.Breeding] 渲染单只动物异常: id={entity?.Id}, err={e.Message}");
+                    Log.Warning($"[Breeding] 渲染单只动物异常: id={entity?.Id}, err={e.Message}");
                 }
             });
 
