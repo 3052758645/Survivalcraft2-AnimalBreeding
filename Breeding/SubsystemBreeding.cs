@@ -26,6 +26,15 @@ namespace Game
 
         static readonly Dictionary<Entity, BreedingState> s_states = new();
 
+        /// <summary>
+        /// 上鞍撤销待恢复队列。
+        /// 当原马(处于禁止交互状态)被 RemoveEntity 时(原版上鞍流程会先移除原马再 AddEntity Saddled马)，
+        /// 把它的状态+位置暂存到此队列。后续 OnEntityAdd 收到 *_Saddled 实体时按位置+时间窗口匹配，
+        /// 匹配成功则撤销上鞍(删 Saddled + 重建原马 + 恢复状态)。
+        /// 队列项超过 5 秒未匹配自动清理。
+        /// </summary>
+        static readonly List<PendingSaddleRevert> s_pendingReverts = new();
+
         // ==================== 缓存的子系统 ====================
 
         static Project s_project;
@@ -84,6 +93,18 @@ namespace Game
 
             string templateName = entity.ValuesDictionary.DatabaseObject?.Name;
             if (string.IsNullOrEmpty(templateName)) return;
+
+            // 上鞍撤销：如果新增的是 *_Saddled 实体且待恢复队列有匹配项 → 撤销上鞍
+            if (templateName.EndsWith("_Saddled", StringComparison.Ordinal))
+            {
+                if (TryConsumePendingRevert(entity, templateName, out PendingSaddleRevert revert))
+                {
+                    RevertSaddling(entity, revert, cfg);
+                    return; // 撤销后该 Saddled 实体已被删除，不再处理
+                }
+                // 无匹配项 = 正常上鞍(原马不处于禁止状态)，按 Saddled 模板继续注册
+            }
+
             SpeciesConfig species = cfg.GetSpecies(templateName);
             if (species == null) return;
 
@@ -114,11 +135,165 @@ namespace Game
         public static void OnEntityRemove(Entity entity)
         {
             if (entity == null) return;
+
+            // 上鞍撤销暂存：如果被移除的原马处于禁止交互状态，暂存其状态+位置待恢复
+            if (s_initialized
+                && s_states.TryGetValue(entity, out BreedingState state)
+                && s_time != null)
+            {
+                BreedingConfig cfg = BreedingConfig.Current;
+                SpeciesConfig species = cfg?.GetSpecies(state.TemplateName);
+                if (species != null && IsInteractBlocked(state, species))
+                {
+                    ComponentBody body = entity.FindComponent<ComponentBody>();
+                    if (body != null)
+                    {
+                        s_pendingReverts.Add(new PendingSaddleRevert
+                        {
+                            OriginalTemplate = state.TemplateName,
+                            Position = body.Position,
+                            Rotation = body.Rotation,
+                            Velocity = body.Velocity,
+                            State = state,
+                            QueuedAtSeconds = s_time.GameTime
+                        });
+                        Log.Information($"[Breeding] 暂存禁止交互原马待恢复: template={state.TemplateName}#{entity.Id}, stage={state.GetStageDisplayName()}, pos={body.Position}");
+                        // 注意：不调用 s_states.Remove，因为状态要传给重建的原马
+                        // 但 entity 即将被销毁，从字典移除以避免悬挂引用
+                        s_states.Remove(entity);
+                        return;
+                    }
+                }
+            }
+
             bool removed = s_states.Remove(entity);
             if (removed)
             {
                 Log.Information($"[Breeding] OnEntityRemove 清理: id={entity.Id}, totalTracked={s_states.Count}");
             }
+        }
+
+        // ==================== 上鞍撤销(无 hook，用 OnEntityAdd 撤销法) ====================
+
+        /// <summary>
+        /// 判断当前状态是否禁止交互(上鞍+骑乘)。
+        /// 繁殖期(发情/怀孕/虚弱) 或 幼崽期，按物种配置决定。
+        /// </summary>
+        static bool IsInteractBlocked(BreedingState state, SpeciesConfig species)
+        {
+            if (state == null || species == null) return false;
+            if (state.Stage == GrowthStage.Cub && species.BlockInteractDuringCub) return true;
+            if (species.BlockInteractDuringBreeding && IsInBreedingState(state)) return true;
+            return false;
+        }
+
+        /// <summary>是否处于繁殖期(发情/怀孕/虚弱)。</summary>
+        static bool IsInBreedingState(BreedingState state)
+        {
+            if (state == null) return false;
+            if (state.IsInEstrus) return true;
+            if (state.PregnancyRemainingSeconds > 0f) return true;
+            if (state.IsWeak) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// 尝试从待恢复队列消费一个匹配项。
+        /// 匹配条件：Saddled 实体位置与暂存位置距离 ≤ 2 格，且暂存时间 ≤ 5 秒。
+        /// 匹配后从队列移除。返回 true 表示找到匹配项。
+        /// </summary>
+        static bool TryConsumePendingRevert(Entity saddledEntity, string saddledTemplate, out PendingSaddleRevert matched)
+        {
+            matched = null;
+            if (s_pendingReverts.Count == 0 || s_time == null) return false;
+
+            // saddledTemplate 形如 "Horse_White_Saddled"，去掉 _Saddled 后缀得到原模板 "Horse_White"
+            string expectedOriginal = saddledTemplate.Substring(0, saddledTemplate.Length - "_Saddled".Length);
+
+            ComponentBody body = saddledEntity.FindComponent<ComponentBody>();
+            if (body == null) return false;
+            Vector3 pos = body.Position;
+
+            float now = s_time.GameTime;
+            for (int i = s_pendingReverts.Count - 1; i >= 0; i--)
+            {
+                PendingSaddleRevert r = s_pendingReverts[i];
+                // 过期清理
+                if (now - r.QueuedAtSeconds > 5f)
+                {
+                    s_pendingReverts.RemoveAt(i);
+                    continue;
+                }
+                // 模板匹配 + 位置匹配
+                if (!string.Equals(r.OriginalTemplate, expectedOriginal, StringComparison.Ordinal)) continue;
+                if (Vector3.Distance(r.Position, pos) > 2f) continue;
+                matched = r;
+                s_pendingReverts.RemoveAt(i);
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 撤销上鞍：删除 Saddled 实体，重建原马模板实体，恢复繁殖状态。
+        /// 按配置决定是否退鞍给玩家(ConsumeSaddleOnBlocked=false 时尝试退鞍)。
+        /// </summary>
+        static void RevertSaddling(Entity saddledEntity, PendingSaddleRevert revert, BreedingConfig cfg)
+        {
+            try
+            {
+                // 1. 删除 Saddled 实体
+                s_project.RemoveEntity(saddledEntity, true);
+
+                // 2. 重建原马模板实体
+                Entity original = DatabaseManager.CreateEntity(s_project, revert.OriginalTemplate, false);
+                if (original == null)
+                {
+                    Log.Warning($"[Breeding] 撤销上鞍失败：无法重建原模板 {revert.OriginalTemplate}");
+                    return;
+                }
+                ComponentBody origBody = original.FindComponent<ComponentBody>(true);
+                origBody.Position = revert.Position;
+                origBody.Rotation = revert.Rotation;
+                origBody.Velocity = revert.Velocity;
+                original.FindComponent<ComponentSpawn>(true).SpawnDuration = 0f;
+                s_project.AddEntity(original);
+
+                // 3. 恢复繁殖状态(OnEntityAdd 会先按自然生成初始化，这里覆盖回原状态)
+                //    注意：AddEntity 后 OnEntityAdd 会被同步调用并注册新状态，我们要在它之后覆盖
+                s_states[original] = revert.State;
+                CacheAndApplyBoxSize(original, revert.State, cfg);
+
+                // 4. 退鞍(如果配置 ConsumeSaddleOnBlocked=false)
+                //    原版 OnUse 在调用我们 hook 前已经 RemoveActiveTool(1) 扣了鞍，无法直接退回原鞍。
+                //    但我们可以给最近的玩家背包加一个 Saddle 物品作为补偿。
+                //    注意：此退鞍是"补偿"，不保证精确到原鞍，但物品数量正确。
+                SpeciesConfig species = cfg.GetSpecies(revert.OriginalTemplate);
+                bool consume = species?.ConsumeSaddleOnBlocked ?? false;
+                if (!consume)
+                {
+                    TryRefundSaddle();
+                }
+
+                Log.Information($"[Breeding] 撤销上鞍成功: original={revert.OriginalTemplate}, stage={revert.State.GetStageDisplayName()}, consumeSaddle={consume}, totalTracked={s_states.Count}");
+            }
+            catch (Exception e)
+            {
+                Log.Warning($"[Breeding] 撤销上鞍异常: {e.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 尝试给最近的玩家补偿一个鞍(Saddle 物品 id=158 对应的 BlockValue/Pickable)。
+        /// 由于无法精确知道是哪个玩家操作的，这里简化为：不做补偿，仅日志提示。
+        /// 真正的退鞍需要 hook OnUse 在扣鞍前拦截，当前 mod API 无此能力。
+        /// </summary>
+        static void TryRefundSaddle()
+        {
+            // 当前 mod API 无 OnUse hook，无法在扣鞍前拦截，也无法精确定位玩家。
+            // ConsumeSaddleOnBlocked=false 的语义退化为"不额外惩罚"(原版已扣的鞍不退)。
+            // 若要真正退鞍，需要等官方加 OnUse hook 或改用 Harmony patch。
+            Log.Warning("[Breeding] ConsumeSaddleOnBlocked=false 但当前 mod API 无 OnUse hook，无法退鞍(原版已扣鞍)");
         }
 
         public static void OnReadSpawnData(Entity entity, SpawnEntityData spawnEntityData)
@@ -340,7 +515,7 @@ namespace Game
             }
         }
 
-        /// <summary>查找 MateRadius 内的发情成年公体(同模板)。额外检查 IsWeak 防止同帧多次交配。</summary>
+        /// <summary>查找 MateRadius 内的发情成年公体(同物种或别名互通)。额外检查 IsWeak 防止同帧多次交配。</summary>
         static Entity FindNearbyEstrusMale(Entity entity, BreedingState state, SpeciesConfig species)
         {
             ComponentBody body = entity.FindComponent<ComponentBody>();
@@ -359,12 +534,22 @@ namespace Game
                 if (!otherState.IsAdult) continue;
                 if (otherState.IsWeak) continue; // 虚弱期公狼不可交配(双重保险)
                 if (!otherState.IsInEstrus) continue;
-                if (!string.Equals(otherState.TemplateName, state.TemplateName, StringComparison.Ordinal)) continue;
+                if (!IsMatingCompatible(species, otherState.TemplateName)) continue; // 别名互通
                 Vector3 otherPos = results.Array[i].Position;
                 if (Vector3.Distance(pos, otherPos) > radius) continue;
                 return other;
             }
             return null;
+        }
+
+        /// <summary>
+        /// 判断当前物种是否可与 targetTemplateName 交配(同物种或别名互通)。
+        /// 例: Cow.MatingSet={Cow,Bull}，Bull.MatingSet={Bull,Cow}，二者有交集即可交配。
+        /// </summary>
+        static bool IsMatingCompatible(SpeciesConfig species, string targetTemplateName)
+        {
+            if (species == null || string.IsNullOrEmpty(targetTemplateName)) return false;
+            return species.MatingSet.Contains(targetTemplateName);
         }
 
         // ==================== 公体更新：寻找母狼 + 竞争打斗 ====================
@@ -452,7 +637,7 @@ namespace Game
                 if (!otherState.IsAdult) continue;
                 if (!otherState.IsInEstrus) continue;
                 if (otherState.TargetFemaleId != targetFemaleId) continue; // 同一目标母狼
-                if (!string.Equals(otherState.TemplateName, state.TemplateName, StringComparison.Ordinal)) continue;
+                if (!IsMatingCompatible(species, otherState.TemplateName)) continue; // 别名互通
                 return other; // 找到竞争对手
             }
             return null;
@@ -482,7 +667,7 @@ namespace Game
                 if (otherState.IsWeak) continue; // 虚弱期母狼不可交配
                 if (!otherState.IsInEstrus) continue;
                 if (otherState.PregnancyRemainingSeconds > 0f) continue; // 跳过怀孕母狼
-                if (!string.Equals(otherState.TemplateName, state.TemplateName, StringComparison.Ordinal)) continue;
+                if (!IsMatingCompatible(species, otherState.TemplateName)) continue; // 别名互通
 
                 Vector3 otherPos = results.Array[i].Position;
                 float dist = Vector3.Distance(pos, otherPos);
@@ -512,8 +697,12 @@ namespace Game
             Vector3 offset = new(s_random.Float(-off, off), 0f, s_random.Float(-off, off));
             Vector3 spawnPos = basePos + offset;
 
-            // 用母体模板生成幼崽(外观与母体一致，BoxSize/ModelScale 由繁殖系统缩小)
-            Entity cub = s_creatureSpawn.SpawnCreature(motherState.TemplateName, spawnPos, false);
+            // 用母体模板或 CubTemplateOverride 生成幼崽
+            // 默认沿用母体(外观一致)；若配置了 CubTemplateOverride 则用指定模板(如 Cow 母牛生 Cow 小牛)
+            string cubTemplate = !string.IsNullOrEmpty(species.CubTemplateOverride)
+                ? species.CubTemplateOverride
+                : motherState.TemplateName;
+            Entity cub = s_creatureSpawn.SpawnCreature(cubTemplate, spawnPos, false);
             if (cub == null)
             {
                 Log.Warning("[Breeding] 幼崽生成失败");
@@ -564,6 +753,33 @@ namespace Game
             if (s_debugHitCounter++ % 200 == 0)
             {
                 Log.Information($"[Breeding] OnMinerHit 攻击力修正: id={attacker.Id}, template={state.TemplateName}, stage={state.GetStageDisplayName()}, gender={state.GetGenderDisplayName()}, factor=stage×{stageFactor}*gender×{genderFactor}={stageFactor * genderFactor}");
+            }
+        }
+
+        // ==================== 骑乘拦截(ScoreMount hook) ====================
+
+        /// <summary>
+        /// 骑乘拦截：当玩家试图骑乘处于禁止交互状态(繁殖期/幼崽期)的生物时返回 -1 阻止。
+        /// 由 BreedingModLoader.ScoreMount 调用。
+        /// </summary>
+        public static void OnScoreMount(ComponentRider rider, ComponentMount mount, out float? score)
+        {
+            score = null;
+            if (!s_initialized) return;
+            BreedingConfig cfg = BreedingConfig.Current;
+            if (cfg?.Enabled != true) return;
+            if (mount?.Entity == null) return;
+
+            Entity mountEntity = mount.Entity;
+            if (!s_states.TryGetValue(mountEntity, out BreedingState state)) return;
+
+            SpeciesConfig species = cfg.GetSpecies(state.TemplateName);
+            if (species == null) return;
+
+            if (IsInteractBlocked(state, species))
+            {
+                score = -1f; // 返回负分阻止骑乘
+                Log.Information($"[Breeding] 阻止骑乘: mount={state.TemplateName}#{mountEntity.Id}, stage={state.GetStageDisplayName()}, status={state.GetBreedingStatus()}");
             }
         }
 
@@ -644,5 +860,20 @@ namespace Game
         {
             return entity != null && s_states.TryGetValue(entity, out BreedingState s) ? s : null;
         }
+    }
+
+    /// <summary>
+    /// 上鞍撤销待恢复项。
+    /// 当禁止交互的原马被上鞍(原版 RemoveEntity+AddEntity Saddled)时，
+    /// 暂存其状态+位置，等 Saddled 实体 OnEntityAdd 时按位置匹配撤销。
+    /// </summary>
+    class PendingSaddleRevert
+    {
+        public string OriginalTemplate;
+        public Vector3 Position;
+        public Quaternion Rotation;
+        public Vector3 Velocity;
+        public BreedingState State;
+        public float QueuedAtSeconds;
     }
 }

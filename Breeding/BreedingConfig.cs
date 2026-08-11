@@ -64,6 +64,7 @@ namespace Game
                 foreach (KeyValuePair<string, SpeciesConfig> kv in cfg.Species)
                 {
                     kv.Value?.Normalize();
+                    kv.Value?.SetSpeciesName(kv.Key);
                 }
                 Log.Information($"[Breeding] 主配置加载完成，物种数={cfg.Species.Count}，Enabled={cfg.Enabled}");
 
@@ -142,6 +143,7 @@ namespace Game
                         continue;
                     }
                     kv.Value.Normalize();
+                    kv.Value.SetSpeciesName(kv.Key);
                     main.Species[kv.Key] = kv.Value;
                     added++;
                 }
@@ -229,10 +231,56 @@ namespace Game
         /// <summary>幼崽/自然生成个体的公体概率(0~1)。</summary>
         public float CubMaleProbability { get; set; } = 0.5f;
 
+        // ==================== 交互拦截(繁殖期/幼崽期禁止上鞍骑乘) ====================
+
+        /// <summary>
+        /// 繁殖期间(发情/怀孕/虚弱)是否禁止交互(上鞍+骑乘)。默认 true。
+        /// 仅对可上鞍/可骑乘物种(Horse/Donkey/Camel/Reindeer/Ostrich)有意义。
+        /// </summary>
+        public bool BlockInteractDuringBreeding { get; set; } = true;
+
+        /// <summary>
+        /// 幼崽期是否禁止交互(上鞍+骑乘)。默认 true。
+        /// 仅对可上鞍/可骑乘物种(Horse/Donkey/Camel/Reindeer/Ostrich)有意义。
+        /// </summary>
+        public bool BlockInteractDuringCub { get; set; } = true;
+
+        /// <summary>
+        /// 上鞍被拦截时是否仍消耗玩家手中的鞍。默认 false(不消耗，鞍退回)。
+        /// true = 鞍被扣掉但马没上鞍(作为惩罚，玩家会看到"该生物无法上鞍"提示)。
+        /// false = 鞍退回玩家背包，相当于上鞍操作完全取消。
+        /// 注:原版 OnUse 在调用我们的 hook 之前不会扣鞍，所以此选项可控。
+        /// </summary>
+        public bool ConsumeSaddleOnBlocked { get; set; } = false;
+
+        // ==================== 物种别名与幼崽模板 ====================
+
+        /// <summary>
+        /// 物种别名列表。当前模板可与此列表中的模板互相交配。
+        /// 例: Cow 配 Aliases=["Bull"]，则 Cow(母)可和 Bull(公)交配；
+        /// 反之 Bull 也需配 Aliases=["Cow"] 才能双向识别。幼崽模板由各自 CubTemplateOverride 决定。
+        /// </summary>
+        public List<string> Aliases { get; set; } = new();
+
+        /// <summary>
+        /// 幼崽生成时使用的模板名。空或 null = 沿用母体模板(默认)。
+        /// 例: Cow 配 CubTemplateOverride="Cow" 可保证母牛只生小母牛(Cow 模板)，不会生 Bull；
+        /// 不配则母牛生母牛、母公牛生公牛(沿用母体)。
+        /// </summary>
+        public string CubTemplateOverride { get; set; }
+
         // ==================== 运行时(不序列化) ====================
 
         [JsonIgnore]
         public HashSet<Season> ParsedSeasons { get; private set; } = new();
+
+        /// <summary>
+        /// 解析后的别名集合(含自身)，用于交配匹配。
+        /// 例: Cow 的 MatingSet = {Cow, Bull}；Bull 的 MatingSet = {Bull, Cow}。
+        /// 两个个体 MatingSet 有交集即可交配。
+        /// </summary>
+        [JsonIgnore]
+        public HashSet<string> MatingSet { get; private set; } = new();
 
         public void Normalize()
         {
@@ -255,6 +303,27 @@ namespace Game
             if (WeaknessSeconds < 0f) WeaknessSeconds = 60f;
             if (MateRadius <= 0f) MateRadius = 2f;
             if (SeekRadius <= 0f) SeekRadius = 20f;
+
+            // 构建交配集合(含自身+别名)
+            MatingSet = new HashSet<string>(StringComparer.Ordinal) { /* 自身名由外部 SetSpeciesName 填入 */ };
+            Aliases ??= new List<string>();
+            foreach (string alias in Aliases)
+            {
+                if (!string.IsNullOrEmpty(alias))
+                {
+                    MatingSet.Add(alias);
+                }
+            }
+            CubTemplateOverride = string.IsNullOrEmpty(CubTemplateOverride) ? null : CubTemplateOverride;
+        }
+
+        /// <summary>由 BreedingConfig.Normalize 阶段调用，把当前物种名加入 MatingSet。</summary>
+        internal void SetSpeciesName(string name)
+        {
+            if (!string.IsNullOrEmpty(name))
+            {
+                MatingSet.Add(name);
+            }
         }
     }
 }

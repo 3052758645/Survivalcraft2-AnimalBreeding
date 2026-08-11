@@ -30,6 +30,7 @@ namespace Game
             ModsManager.RegisterHook("OnFactorsUpdate", this);
             ModsManager.RegisterHook("OnMinerHit", this);
             ModsManager.RegisterHook("OnModelRendererDrawExtra", this);
+            ModsManager.RegisterHook("ScoreMount", this);
 
             Log.Information("[BreedingMod] 动物繁殖系统模组初始化(含 OnModelRendererDrawExtra 渲染钩子)");
         }
@@ -80,6 +81,13 @@ namespace Game
         {
             hitted = false;
             SubsystemBreeding.OnMinerHit(miner, componentBody, ref attackPower);
+        }
+
+        // ==================== 骑乘拦截 ====================
+
+        public override void ScoreMount(ComponentRider componentRider, ComponentMount componentMount, out float? score)
+        {
+            SubsystemBreeding.OnScoreMount(componentRider, componentMount, out score);
         }
 
         // ==================== 浮动文字渲染(参考原版 SurvivalCraftModLoader.OnModelRendererDrawExtra) ====================
