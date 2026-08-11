@@ -81,6 +81,10 @@ namespace Game
         [JsonIgnore]
         public float? OriginalModelScale { get; set; }
 
+        /// <summary>公狼当前追求的母狼实体 Id(0=无目标)。用于检测多公追同一母狼的竞争。</summary>
+        [JsonIgnore]
+        public int TargetFemaleId { get; set; }
+
         // ==================== 派生查询 ====================
 
         /// <summary>成长进度(0~1)。幼崽期：从出生到成年的线性进度；成年恒为 1。</summary>
@@ -104,16 +108,17 @@ namespace Game
             return Gender == BreedingGender.Male ? "♂公" : "♀母";
         }
 
-        /// <summary>繁殖状态简述(渲染显示用)。</summary>
+        /// <summary>繁殖状态简述(渲染显示用)。怀孕优先显示，其次虚弱，最后发情。</summary>
         public string GetBreedingStatus()
         {
-            if (IsWeak)
-            {
-                return $"虚弱中({WeaknessRemainingSeconds:F0}秒)";
-            }
+            // 母狼怀孕优先显示(即使同时处于虚弱期)
             if (Gender == BreedingGender.Female && PregnancyRemainingSeconds > 0f)
             {
                 return $"怀孕中({PregnancyRemainingSeconds:F0}秒)";
+            }
+            if (IsWeak)
+            {
+                return $"虚弱中({WeaknessRemainingSeconds:F0}秒)";
             }
             if (IsInEstrus)
             {

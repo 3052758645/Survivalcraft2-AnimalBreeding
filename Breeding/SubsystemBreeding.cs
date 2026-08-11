@@ -321,19 +321,22 @@ namespace Game
                 state.PregnancyRemainingSeconds = cfg.GestationSeconds;
                 state.PregnancyFatherId = mate.Id;
                 state.MatingProximitySeconds = 0f;
+                // 母狼不进入虚弱期，直接怀孕(怀孕期间不会再次交配)
+                // 分娩后才进入虚弱期
 
-                // 交配后双方进入虚弱期
-                state.WeaknessRemainingSeconds = cfg.WeaknessSeconds;
+                // 只有公狼进入虚弱期(防止一公多母)
                 if (s_states.TryGetValue(mate, out BreedingState maleState))
                 {
                     maleState.WeaknessRemainingSeconds = cfg.WeaknessSeconds;
+                    maleState.IsInEstrus = false; // 立即更新，防止同帧其他母狼找到他
+                    maleState.TargetFemaleId = 0;
                 }
 
-                Log.Information($"[Breeding] 交配成功(相处{cfg.MatingRequiredProximitySeconds}秒): mother={state.TemplateName}#{entity.Id}, father#{mate.Id}, gestationSec={cfg.GestationSeconds}, weaknessSec={cfg.WeaknessSeconds}");
+                Log.Information($"[Breeding] 交配成功(相处{cfg.MatingRequiredProximitySeconds}秒): mother={state.TemplateName}#{entity.Id}, father#{mate.Id}, gestationSec={cfg.GestationSeconds}, maleWeaknessSec={cfg.WeaknessSeconds}");
             }
         }
 
-        /// <summary>查找 MateRadius 内的发情成年公体(同模板)。</summary>
+        /// <summary>查找 MateRadius 内的发情成年公体(同模板)。额外检查 IsWeak 防止同帧多次交配。</summary>
         static Entity FindNearbyEstrusMale(Entity entity, BreedingState state, BreedingConfig cfg)
         {
             ComponentBody body = entity.FindComponent<ComponentBody>();
@@ -350,6 +353,7 @@ namespace Game
                 if (!s_states.TryGetValue(other, out BreedingState otherState)) continue;
                 if (otherState.Gender != BreedingGender.Male) continue;
                 if (!otherState.IsAdult) continue;
+                if (otherState.IsWeak) continue; // 虚弱期公狼不可交配(双重保险)
                 if (!otherState.IsInEstrus) continue;
                 if (!string.Equals(otherState.TemplateName, state.TemplateName, StringComparison.Ordinal)) continue;
                 Vector3 otherPos = results.Array[i].Position;
@@ -359,25 +363,55 @@ namespace Game
             return null;
         }
 
-        // ==================== 公体更新：寻找母狼并寻路 ====================
+        // ==================== 公体更新：寻找母狼 + 竞争打斗 ====================
 
         /// <summary>
-        /// 发情公狼在 SeekRadius 内寻找发情母狼，找到则设路径走向她。
-        /// 寻路通过 ComponentPathfinding.SetDestination 实现。
+        /// 发情公狼逻辑：
+        /// 1. 在 SeekRadius 内寻找最近的发情母狼，记录 TargetFemaleId。
+        /// 2. 检查是否有其他公狼也以同一母狼为目标 → 竞争对手。
+        /// 3. 有竞争对手 → 通过 ComponentChaseBehavior.Attack 攻击对方(公狼间矛盾)。
+        /// 4. 无竞争对手 → 设路径走向母狼。
         /// </summary>
         static void UpdateMale(Entity entity, BreedingState state, SpeciesConfig species, BreedingConfig cfg)
         {
-            // 不在发情期 → 不寻路
-            if (!state.IsInEstrus) return;
+            // 不在发情期 → 清除目标，不寻路
+            if (!state.IsInEstrus)
+            {
+                state.TargetFemaleId = 0;
+                return;
+            }
 
             // 寻找最近的发情母狼
             Entity female = FindNearestEstrusFemale(entity, state, cfg);
-            if (female == null) return;
+            if (female == null)
+            {
+                state.TargetFemaleId = 0;
+                return;
+            }
 
+            state.TargetFemaleId = female.Id;
+
+            // 检查是否有竞争对手(其他公狼也以同一母狼为目标)
+            Entity rival = FindRival(entity, state, female.Id, cfg);
+            if (rival != null)
+            {
+                // 有竞争对手 → 攻击对方
+                ComponentCreature rivalCreature = rival.FindComponent<ComponentCreature>();
+                ComponentCreature myCreature = entity.FindComponent<ComponentCreature>();
+                ComponentChaseBehavior chaseBehavior = myCreature?.FindComponent<ComponentChaseBehavior>();
+                if (rivalCreature != null && chaseBehavior != null)
+                {
+                    // 攻击竞争对手(范围=SeekRadius，追击时间=30秒，非持久)
+                    chaseBehavior.Attack(rivalCreature, cfg.SeekRadius, 30f, false);
+                    Log.Information($"[Breeding] 公狼竞争: #{entity.Id} 攻击 #{rival.Id}，目标母狼#{female.Id}");
+                }
+                return;
+            }
+
+            // 无竞争对手 → 设路径走向母狼
             ComponentBody femaleBody = female.FindComponent<ComponentBody>();
             if (femaleBody == null) return;
 
-            // 设路径走向母狼
             ComponentPathfinding pathfinding = entity.FindComponent<ComponentPathfinding>();
             if (pathfinding == null) return;
 
@@ -391,6 +425,34 @@ namespace Game
                 true,          // raycastDestination
                 femaleBody     // doNotAvoidBody(不避开母狼)
             );
+        }
+
+        /// <summary>
+        /// 查找竞争对手：在同一 SeekRadius 内，有其他发情公狼也以 targetFemaleId 为目标。
+        /// </summary>
+        static Entity FindRival(Entity entity, BreedingState state, int targetFemaleId, BreedingConfig cfg)
+        {
+            ComponentBody body = entity.FindComponent<ComponentBody>();
+            if (body == null) return null;
+            Vector3 pos = body.Position;
+            float radius = cfg.SeekRadius;
+
+            DynamicArray<ComponentBody> results = new();
+            s_bodies.FindBodiesAroundPoint(new Vector2(pos.X, pos.Z), radius, results);
+
+            for (int i = 0; i < results.Count; i++)
+            {
+                Entity other = results.Array[i].Entity;
+                if (other == entity) continue;
+                if (!s_states.TryGetValue(other, out BreedingState otherState)) continue;
+                if (otherState.Gender != BreedingGender.Male) continue;
+                if (!otherState.IsAdult) continue;
+                if (!otherState.IsInEstrus) continue;
+                if (otherState.TargetFemaleId != targetFemaleId) continue; // 同一目标母狼
+                if (!string.Equals(otherState.TemplateName, state.TemplateName, StringComparison.Ordinal)) continue;
+                return other; // 找到竞争对手
+            }
+            return null;
         }
 
         /// <summary>查找 SeekRadius 内最近的发情成年母狼(同模板，未怀孕)。</summary>
@@ -414,6 +476,7 @@ namespace Game
                 if (!s_states.TryGetValue(other, out BreedingState otherState)) continue;
                 if (otherState.Gender != BreedingGender.Female) continue;
                 if (!otherState.IsAdult) continue;
+                if (otherState.IsWeak) continue; // 虚弱期母狼不可交配
                 if (!otherState.IsInEstrus) continue;
                 if (otherState.PregnancyRemainingSeconds > 0f) continue; // 跳过怀孕母狼
                 if (!string.Equals(otherState.TemplateName, state.TemplateName, StringComparison.Ordinal)) continue;
