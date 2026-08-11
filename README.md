@@ -2,7 +2,9 @@
 
 为 Survivalcraft 2 (2.4.0.0) 加入动物繁殖系统的独立模组。
 
-当前版本为**简化测试版**，仅对**灰狼 (Wolf_Gray)** 生效。公狼会主动寻找母狼，相处 10 秒后交配，双方进入虚弱期，母狼怀孕 30 秒后分娩，幼崽 3 天成长成年。
+当前版本仅对**灰狼 (Wolf_Gray)** 生效。公狼会主动寻找母狼，相处 10 秒后交配，公狼进入虚弱期（防止一公多母），母狼怀孕 30 秒后分娩，母狼进入虚弱期，幼崽 3 天成长成年。多只公狼追求同一母狼时会互相攻击。
+
+> **配置文档**：所有可调参数详见 [CONFIG.md](CONFIG.md)。
 
 ---
 
@@ -177,7 +179,9 @@ scale = CubBoxScale + (成年scale - CubBoxScale) × 成长进度
 
 所有参数在 [MOD/Assets/BreedingConfig.json](MOD/Assets/BreedingConfig.json)，**退出世界重进即生效**，无需重新编译。
 
-### 全局参数
+> 完整参数说明详见 [CONFIG.md](CONFIG.md)。
+
+### 全局参数（速览）
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
@@ -194,6 +198,9 @@ scale = CubBoxScale + (成年scale - CubBoxScale) × 成长进度
 | `SeekRadius` | `20.0` | 公狼寻找母狼的搜索半径（方块） |
 | `MatingRequiredProximitySeconds` | `10.0` | 交配所需相处时间（现实秒） |
 | `WeaknessSeconds` | `60.0` | 虚弱期持续秒数（现实秒） |
+| `RivalChaseTime` | `30.0` | 公狼竞争追击时长（现实秒） |
+| `BirthSpawnOffset` | `1.5` | 分娩幼崽偏移范围（方块） |
+| `CubMaleProbability` | `0.5` | 公狼生成概率（0~1） |
 
 ### 物种配置 (`Species`)
 
@@ -242,19 +249,49 @@ scale = CubBoxScale + (成年scale - CubBoxScale) × 成长进度
 
 ---
 
-## 六、安装
+## 六、安装与构建
 
-1. 用 Visual Studio / Rider 打开 `BreedingMod.csproj`
-2. 把游戏目录下的 `Engine.dll` / `EntitySystem.dll` / `Survivalcraft.dll` 复制到 `Quoted/` 目录
-3. 编译生成 `BreedingMod.dll`，放入 `MOD/` 目录
-4. 把 `MOD/` 目录打包为 `.pak` 文件
-5. 放到游戏的 `Mods/` 目录
+### 从源码构建
+
+1. **环境要求**：Visual Studio 2022 / Rider / .NET SDK，目标框架 .NET Framework 4.8（与游戏一致）。
+2. **克隆仓库**：
+   ```bash
+   git clone https://gitee.com/YonRen/Survivalcraft2-AnimalBreeding.git
+   ```
+3. **引用游戏程序集**：把游戏目录下的 `Engine.dll` / `EntitySystem.dll` / `Survivalcraft.dll` 复制到 `Quoted/` 目录（或修改 `.csproj` 中的引用路径）。
+4. **编译**：用 IDE 打开 `BreedingMod.csproj`，编译生成 `BreedingMod.dll`。
+5. **打包**：把 `MOD/` 目录（含 `BreedingMod.dll` 和 `Assets/`）打包为 `.pak` 文件。
+6. **安装**：把 `.pak` 放到游戏的 `Mods/` 目录，启动游戏即可。
+
+### 直接使用 Release
+
+到仓库 [Releases 页面](https://gitee.com/YonRen/Survivalcraft2-AnimalBreeding/releases) 下载 `.pak` 文件，放到游戏的 `Mods/` 目录即可。
 
 ---
 
-## 七、技术说明
+## 七、仓库结构
 
-### 文件结构
+```
+hykj-breeding-mod/
+├── README.md                      # 玩法文档（本文件）
+├── CONFIG.md                      # 配置参数详细文档
+├── BreedingMod.csproj             # 项目文件
+├── BreedingModLoader.cs           # 模组入口，注册 Hook + 浮动文字渲染
+├── Breeding/                      # 繁殖系统核心
+│   ├── SubsystemBreeding.cs       # 核心逻辑：发情/寻路/相处/交配/孕期/分娩/成长/体型/攻击力/仇恨
+│   ├── BreedingState.cs           # 单只动物的运行时状态 + JSON 序列化
+│   └── BreedingConfig.cs          # 配置文件加载与缓存
+├── MOD/                           # 模组打包目录
+│   ├── modinfo.json               # 模组元信息
+│   └── Assets/
+│       └── BreedingConfig.json    # 外部配置文件（退出世界重进即生效）
+└── Quoted/                        # 游戏程序集引用（需自行放入）
+    ├── Engine.dll
+    ├── EntitySystem.dll
+    └── Survivalcraft.dll
+```
+
+### 文件职责
 
 | 文件 | 职责 |
 |------|------|
@@ -263,6 +300,11 @@ scale = CubBoxScale + (成年scale - CubBoxScale) × 成长进度
 | [Breeding/BreedingState.cs](Breeding/BreedingState.cs) | 单只动物的运行时状态（性别/阶段/孕期/虚弱/相处计时/追求目标），含 JSON 序列化 |
 | [Breeding/BreedingConfig.cs](Breeding/BreedingConfig.cs) | 配置文件加载与缓存 |
 | [MOD/Assets/BreedingConfig.json](MOD/Assets/BreedingConfig.json) | 外部配置文件 |
+| [CONFIG.md](CONFIG.md) | 配置参数详细文档 |
+
+---
+
+## 八、技术说明
 
 ### 运行时数据流
 

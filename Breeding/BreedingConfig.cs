@@ -55,6 +55,15 @@ namespace Game
         /// <summary>虚弱期持续秒数(现实秒)。交配/分娩后进入虚弱期，期间不处于发情状态。</summary>
         public float WeaknessSeconds { get; set; } = 60.0f;
 
+        /// <summary>公狼竞争时追击竞争对手的时长(现实秒)。</summary>
+        public float RivalChaseTime { get; set; } = 30.0f;
+
+        /// <summary>分娩时幼崽在母体附近的随机偏移范围(方块)。</summary>
+        public float BirthSpawnOffset { get; set; } = 1.5f;
+
+        /// <summary>幼崽/自然生成个体的公狼概率(0~1)。</summary>
+        public float CubMaleProbability { get; set; } = 0.5f;
+
         /// <summary>按实体模板名索引的物种配置。</summary>
         public Dictionary<string, SpeciesConfig> Species { get; set; } = new();
 
