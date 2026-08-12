@@ -87,6 +87,44 @@ namespace Game
                 Log.Warning("[Breeding] 配置禁用或加载失败，繁殖系统不生效");
             }
             s_initialized = true;
+
+            // 补注册在 Initialize 之前已 AddEntity 的实体
+            // (Project.LoadEntities → OnEntityAdd 在 OnProjectLoaded/Initialize 之前触发，
+            //  此时 s_initialized=false 导致 OnEntityAdd 跳过。这里遍历补建)
+            if (cfg?.Enabled == true && project.Entities != null)
+            {
+                int backfilled = 0;
+                foreach (Entity existing in project.Entities)
+                {
+                    if (s_states.ContainsKey(existing)) continue;
+                    ComponentCreature creature = existing.FindComponent<ComponentCreature>();
+                    if (creature == null) continue;
+                    string tn = existing.ValuesDictionary.DatabaseObject?.Name;
+                    if (string.IsNullOrEmpty(tn)) continue;
+                    string normTn = NormalizeTemplateName(tn);
+                    SpeciesConfig sp = cfg.GetSpecies(normTn);
+                    if (sp == null) continue;
+                    // 这些实体没有 OnReadSpawnData 恢复(非 SpawnEntity 路径)，
+                    // 按自然生成成体初始化
+                    BreedingState st = new()
+                    {
+                        TemplateName = normTn,
+                        Gender = s_random.Bool(sp.CubMaleProbability) ? BreedingGender.Male : BreedingGender.Female,
+                        Stage = GrowthStage.Adult,
+                        BirthDay = s_timeOfDay.Day,
+                        PregnancyRemainingSeconds = -1f,
+                        WeaknessRemainingSeconds = -1f
+                    };
+                    s_states[existing] = st;
+                    CacheAndApplyBoxSize(existing, st, cfg);
+                    backfilled++;
+                }
+                if (backfilled > 0)
+                {
+                    Log.Information($"[Breeding] Initialize 补注册 {backfilled} 个早期加载实体");
+                }
+            }
+
             Log.Information("[Breeding] Initialize 完成");
         }
 
@@ -123,7 +161,8 @@ namespace Game
 
             if (s_states.ContainsKey(entity))
             {
-                Log.Information($"[Breeding] OnEntityAdd 已存在状态: id={entity.Id}, template={templateName}");
+                // OnReadSpawnData 已恢复存档状态，这里保留不覆盖
+                Log.Information($"[Breeding] OnEntityAdd 已存在状态(OnReadSpawnData已恢复): id={entity.Id}, template={templateName}→{normalizedTemplate}");
                 return;
             }
 
@@ -335,19 +374,35 @@ namespace Game
 
         public static void OnReadSpawnData(Entity entity, SpawnEntityData spawnEntityData)
         {
-            if (!s_initialized || entity == null || spawnEntityData == null) return;
+            if (!s_initialized || entity == null || spawnEntityData == null)
+            {
+                Log.Information($"[Breeding] OnReadSpawnData 跳过: initialized={s_initialized}, entity={entity != null}, data={spawnEntityData != null}");
+                return;
+            }
             BreedingConfig cfg = BreedingConfig.Current;
             if (cfg?.Enabled != true) return;
 
             string templateName = entity.ValuesDictionary.DatabaseObject?.Name;
-            if (string.IsNullOrEmpty(templateName)) return;
+            if (string.IsNullOrEmpty(templateName))
+            {
+                Log.Information($"[Breeding] OnReadSpawnData 跳过: 模板名为空, id={entity.Id}");
+                return;
+            }
 
             // 归一化模板名(带鞍马存档读取时也要归一化)
             string normalizedTemplate = NormalizeTemplateName(templateName);
-            if (cfg.GetSpecies(normalizedTemplate) == null) return;
+            if (cfg.GetSpecies(normalizedTemplate) == null)
+            {
+                Log.Information($"[Breeding] OnReadSpawnData 跳过: 非追踪物种, template={templateName}→{normalizedTemplate}, id={entity.Id}");
+                return;
+            }
 
             BreedingState state = BreedingState.Deserialize(spawnEntityData.Data);
-            if (state == null) return;
+            if (state == null)
+            {
+                Log.Information($"[Breeding] OnReadSpawnData 反序列化为null(可能Data为空), id={entity.Id}, template={templateName}, dataLen={spawnEntityData.Data?.Length ?? 0}");
+                return; // Data 为空 = 存档时无状态，留给 OnEntityAdd 创建默认状态
+            }
 
             // 状态模板名与归一化后的实体模板名比较(支持带鞍马存档恢复)
             if (!string.Equals(state.TemplateName, normalizedTemplate, StringComparison.Ordinal))
@@ -358,7 +413,7 @@ namespace Game
             s_states[entity] = state;
             CacheAndApplyBoxSize(entity, state, cfg);
 
-            Log.Information($"[Breeding] OnReadSpawnData 恢复状态: id={entity.Id}, template={templateName}→{normalizedTemplate}, gender={state.GetGenderDisplayName()}, stage={state.GetStageDisplayName()}, pregnancySec={state.PregnancyRemainingSeconds}, weaknessSec={state.WeaknessRemainingSeconds}");
+            Log.Information($"[Breeding] OnReadSpawnData 恢复状态: id={entity.Id}, template={templateName}→{normalizedTemplate}, gender={state.GetGenderDisplayName()}, stage={state.GetStageDisplayName()}, pregnancySec={state.PregnancyRemainingSeconds}, weaknessSec={state.WeaknessRemainingSeconds}, fedSec={state.FedRemainingSeconds}");
         }
 
         public static void OnSaveSpawnData(ComponentSpawn spawn, SpawnEntityData spawnEntityData)
