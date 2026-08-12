@@ -85,14 +85,12 @@ namespace Game
                 ? new Dictionary<Entity, BreedingState>(s_states)
                 : null;
             Log.Information($"[Breeding] Initialize: 保存 OnReadSpawnData 缓存，count={cachedFromSpawn?.Count ?? 0}");
-            Log.Information($"[Breeding] Initialize: 清空前 s_states.Count={s_states.Count}, 实体ID列表=[{string.Join(",", s_states.Keys.Select(e => e.Id))}]");
 
             // 清空旧世界残留(静态字段跨世界保留，不清空会导致旧 Entity 引用泄漏)
             s_states.Clear();
             s_pendingReverts.Clear();
             s_initialized = false;
             Log.Information($"[Breeding] Initialize: 清空旧世界残留，s_states.Count={s_states.Count}");
-            Log.Information($"[Breeding] Initialize: 清空后 s_states.Count={s_states.Count}");
 
             s_project = project;
             s_creatureSpawn = project.FindSubsystem<SubsystemCreatureSpawn>(true);
