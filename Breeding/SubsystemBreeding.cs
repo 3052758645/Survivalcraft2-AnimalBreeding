@@ -51,14 +51,8 @@ namespace Game
         /// <summary>渲染钩子(OnModelDrawExtra)用它获取 FontBatch 入队悬浮文字。</summary>
         public static SubsystemModelsRenderer ModelsRenderer => s_modelsRenderer;
 
-        /// <summary>攻击力修正命中节流计数器(每 200 次命中输出一次)。</summary>
-        static long s_debugHitCounter;
-
         /// <summary>体型更新节流计数器(每 60 帧更新一次体型，避免每帧写 BoxSize)。</summary>
         static long s_debugFrameCounter;
-
-        /// <summary>发情调试日志节流计数器(每 300 帧输出一次找不到公体的日志)。</summary>
-        static long s_debugEstrusCounter;
 
         /// <summary>
         /// 由 BreedingModLoader.OnProjectLoaded 调用，缓存子系统引用并加载配置。
@@ -66,7 +60,6 @@ namespace Game
         /// </summary>
         public static void Initialize(Project project)
         {
-            Log.Information("[Breeding] Initialize 开始");
             // 清空旧世界残留(静态字段跨世界保留，不清空会导致旧 Entity 引用泄漏)
             s_states.Clear();
             s_pendingReverts.Clear();
@@ -79,7 +72,6 @@ namespace Game
             s_timeOfDay = project.FindSubsystem<SubsystemTimeOfDay>(true);
             s_time = project.FindSubsystem<SubsystemTime>(true);
             s_modelsRenderer = project.FindSubsystem<SubsystemModelsRenderer>(true);
-            Log.Information($"[Breeding] 子系统已缓存: creatureSpawn={s_creatureSpawn!=null}, bodies={s_bodies!=null}, seasons={s_seasons!=null}, timeOfDay={s_timeOfDay!=null}, time={s_time!=null}, modelsRenderer={s_modelsRenderer!=null}");
 
             BreedingConfig.Load();
             BreedingConfig cfg = BreedingConfig.Current;
@@ -124,13 +116,7 @@ namespace Game
                     CacheAndApplyBoxSize(existing, st, cfg);
                     backfilled++;
                 }
-                if (backfilled > 0)
-                {
-                    Log.Information($"[Breeding] Initialize 补注册 {backfilled} 个早期加载实体");
-                }
             }
-
-            Log.Information("[Breeding] Initialize 完成");
         }
 
         // ==================== 实体生命周期钩子 ====================
@@ -167,7 +153,6 @@ namespace Game
             if (s_states.ContainsKey(entity))
             {
                 // OnReadSpawnData 已恢复存档状态，这里保留不覆盖
-                Log.Information($"[Breeding] OnEntityAdd 已存在状态(OnReadSpawnData已恢复): id={entity.Id}, template={templateName}→{normalizedTemplate}");
                 return;
             }
 
@@ -186,8 +171,6 @@ namespace Game
 
             // 缓存原版 BoxSize/ModelScale 并应用成年体型
             CacheAndApplyBoxSize(entity, state, cfg);
-
-            Log.Information($"[Breeding] OnEntityAdd 注册新个体: id={entity.Id}, template={templateName}→{normalizedTemplate}, gender={state.GetGenderDisplayName()}, stage={state.GetStageDisplayName()}, matingSet=[{string.Join(",", species.MatingSet)}], totalTracked={s_states.Count}");
         }
 
         /// <summary>
@@ -238,18 +221,13 @@ namespace Game
                             State = state,
                             QueuedAtSeconds = (float)s_time.GameTime
                         });
-                        Log.Information($"[Breeding] 暂存禁止交互原马待恢复: template={state.TemplateName}#{entity.Id}, stage={state.GetStageDisplayName()}, pos={body.Position}");
                         s_states.Remove(entity);
                         return;
                     }
                 }
             }
 
-            bool removed = s_states.Remove(entity);
-            if (removed)
-            {
-                Log.Information($"[Breeding] OnEntityRemove 清理: id={entity.Id}, totalTracked={s_states.Count}");
-            }
+            s_states.Remove(entity);
         }
 
         /// <summary>
@@ -369,7 +347,6 @@ namespace Game
                     Log.Warning("[Breeding] ConsumeSaddleOnBlocked=false：原版已扣鞍，mod API 无 OnUse hook 无法退鞍，上鞍已撤销");
                 }
 
-                Log.Information($"[Breeding] 撤销上鞍成功: original={revert.OriginalTemplate}, stage={revert.State.GetStageDisplayName()}, consumeSaddle={consume}, totalTracked={s_states.Count}");
             }
             catch (Exception e)
             {
@@ -381,33 +358,20 @@ namespace Game
         {
             if (!s_initialized || entity == null || spawnEntityData == null)
             {
-                Log.Information($"[Breeding] OnReadSpawnData 跳过: initialized={s_initialized}, entity={entity != null}, data={spawnEntityData != null}");
                 return;
             }
             BreedingConfig cfg = BreedingConfig.Current;
             if (cfg?.Enabled != true) return;
 
             string templateName = entity.ValuesDictionary.DatabaseObject?.Name;
-            if (string.IsNullOrEmpty(templateName))
-            {
-                Log.Information($"[Breeding] OnReadSpawnData 跳过: 模板名为空, id={entity.Id}");
-                return;
-            }
+            if (string.IsNullOrEmpty(templateName)) return;
 
             // 归一化模板名(带鞍马存档读取时也要归一化)
             string normalizedTemplate = NormalizeTemplateName(templateName);
-            if (cfg.GetSpecies(normalizedTemplate) == null)
-            {
-                Log.Information($"[Breeding] OnReadSpawnData 跳过: 非追踪物种, template={templateName}→{normalizedTemplate}, id={entity.Id}");
-                return;
-            }
+            if (cfg.GetSpecies(normalizedTemplate) == null) return;
 
             BreedingState state = BreedingState.Deserialize(spawnEntityData.Data);
-            if (state == null)
-            {
-                Log.Information($"[Breeding] OnReadSpawnData 反序列化为null(可能Data为空), id={entity.Id}, template={templateName}, dataLen={spawnEntityData.Data?.Length ?? 0}");
-                return; // Data 为空 = 存档时无状态，留给 OnEntityAdd 创建默认状态
-            }
+            if (state == null) return; // Data 为空 = 存档时无状态，留给 OnEntityAdd 创建默认状态
 
             // 状态模板名与归一化后的实体模板名比较(支持带鞍马存档恢复)
             if (!string.Equals(state.TemplateName, normalizedTemplate, StringComparison.Ordinal))
@@ -417,8 +381,6 @@ namespace Game
             }
             s_states[entity] = state;
             CacheAndApplyBoxSize(entity, state, cfg);
-
-            Log.Information($"[Breeding] OnReadSpawnData 恢复状态: id={entity.Id}, template={templateName}→{normalizedTemplate}, gender={state.GetGenderDisplayName()}, stage={state.GetStageDisplayName()}, pregnancySec={state.PregnancyRemainingSeconds}, weaknessSec={state.WeaknessRemainingSeconds}, fedSec={state.FedRemainingSeconds}");
         }
 
         public static void OnSaveSpawnData(ComponentSpawn spawn, SpawnEntityData spawnEntityData)
@@ -450,7 +412,6 @@ namespace Game
                 if (state.WeaknessRemainingSeconds < 0f)
                 {
                     state.WeaknessRemainingSeconds = -1f;
-                    Log.Information($"[Breeding] 虚弱期结束: id={entity.Id}, template={state.TemplateName}, gender={state.GetGenderDisplayName()}");
                 }
             }
 
@@ -461,7 +422,6 @@ namespace Game
                 if (state.FedRemainingSeconds < 0f)
                 {
                     state.FedRemainingSeconds = -1f;
-                    Log.Information($"[Breeding] 喂食状态过期: id={entity.Id}, template={state.TemplateName}, gender={state.GetGenderDisplayName()}");
                 }
             }
 
@@ -505,7 +465,6 @@ namespace Game
             if (ageDays >= species.CubDurationDays)
             {
                 state.Stage = GrowthStage.Adult;
-                Log.Information($"[Breeding] 幼崽进阶成年: id={entity.Id}, template={state.TemplateName}, age={ageDays:F2}天, cubDuration={species.CubDurationDays}天");
                 // 进阶成年时立即应用一次成年体型
                 ApplyBoxSizeByGrowth(entity, state, species, 1f);
             }
@@ -602,11 +561,6 @@ namespace Game
             Entity mate = FindNearbyEstrusMale(entity, state, species);
             if (mate == null)
             {
-                // 低频调试日志：每 300 帧输出一次，帮助排查"发情但不交配"问题
-                if (s_debugEstrusCounter++ % 300 == 0)
-                {
-                    Log.Information($"[Breeding] 发情中但 MateRadius({species.MateRadius})内无合格公体: id={entity.Id}, template={state.TemplateName}, matingSet=[{string.Join(",", species.MatingSet)}], season={s_seasons.Season}");
-                }
                 state.MatingProximitySeconds = 0f;
                 return;
             }
@@ -711,7 +665,6 @@ namespace Game
                 {
                     // 攻击竞争对手(范围=SeekRadius，追击时间=RivalChaseTime秒，非持久)
                     chaseBehavior.Attack(rivalCreature, species.SeekRadius, species.RivalChaseTime, false);
-                    Log.Information($"[Breeding] 公狼竞争: #{entity.Id} 攻击 #{rival.Id}，目标母狼#{female.Id}");
                 }
                 return;
             }
@@ -902,11 +855,6 @@ namespace Game
             float stageFactor = state.Stage == GrowthStage.Cub ? species.CubAttackFactor : species.AdultAttackFactor;
             float genderFactor = state.Gender == BreedingGender.Male ? species.MaleAttackBonus : 1.0f;
             attackPower *= stageFactor * genderFactor;
-
-            if (s_debugHitCounter++ % 200 == 0)
-            {
-                Log.Information($"[Breeding] OnMinerHit 攻击力修正: id={attacker.Id}, template={state.TemplateName}, stage={state.GetStageDisplayName()}, gender={state.GetGenderDisplayName()}, factor=stage×{stageFactor}*gender×{genderFactor}={stageFactor * genderFactor}");
-            }
         }
 
         // ==================== 骑乘拦截(ScoreMount hook) ====================
@@ -932,7 +880,6 @@ namespace Game
             if (IsInteractBlocked(state, species))
             {
                 score = -1f; // 返回负分阻止骑乘
-                Log.Information($"[Breeding] 阻止骑乘: mount={state.TemplateName}#{mountEntity.Id}, stage={state.GetStageDisplayName()}, status={state.GetBreedingStatus(species)}");
             }
         }
 
@@ -966,7 +913,6 @@ namespace Game
 
             // 喂食成功：设置已喂食状态
             state.FedRemainingSeconds = species.FedDurationSeconds;
-            Log.Information($"[Breeding] 喂食成功: id={entity.Id}, template={state.TemplateName}, gender={state.GetGenderDisplayName()}, feedItem={species.FeedItem ?? "(任意食物)"}, fedSec={species.FedDurationSeconds}");
         }
 
         /// <summary>
