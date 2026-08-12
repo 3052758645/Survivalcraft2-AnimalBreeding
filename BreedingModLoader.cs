@@ -1,4 +1,5 @@
 using System;
+using System.Xml.Linq;
 using Engine;
 using Engine.Graphics;
 using Engine.Media;
@@ -24,6 +25,9 @@ namespace Game
         {
             // 动物繁殖系统相关钩子：实体生命周期、存档读写、每帧更新、攻击力修正、模型绘制扩展
             ModsManager.RegisterHook("OnProjectLoaded", this);
+            ModsManager.RegisterHook("OnProjectDisposed", this);
+            ModsManager.RegisterHook("ProjectXmlLoad", this);
+            ModsManager.RegisterHook("OnProjectXmlSaved", this);
             ModsManager.RegisterHook("OnEntityAdd", this);
             ModsManager.RegisterHook("OnEntityRemove", this);
             ModsManager.RegisterHook("OnReadSpawnData", this);
@@ -41,6 +45,32 @@ namespace Game
         public override void OnProjectLoaded(Project project)
         {
             SubsystemBreeding.Initialize(project);
+        }
+
+        /// <summary>Project 卸载时清理静态缓存，避免跨世界残留。</summary>
+        public override void OnProjectDisposed()
+        {
+            SubsystemBreeding.ClearXmlCache();
+        }
+
+        // ==================== Project.xml 持久化(活着的生物状态) ====================
+
+        /// <summary>
+        /// 世界加载时、ProjectData 构造之前触发。读取 Project.xml 中的活体生物繁殖状态。
+        /// 时序：ProjectXmlLoad → ProjectData 构造(创建实体) → OnEntityAdd → OnProjectLoaded(Initialize)。
+        /// </summary>
+        public override void ProjectXmlLoad(XElement xElement, WorldInfo worldInfo, ContainerWidget gameWidget)
+        {
+            SubsystemBreeding.LoadXmlStates(xElement);
+        }
+
+        /// <summary>
+        /// 世界保存时、ProjectData.Save 之后、写盘之前触发。把活体生物繁殖状态写入 Project.xml。
+        /// 被 Despawn 的生物已通过 OnSaveSpawnData 保存，此处只处理 s_states 中仍存活的生物。
+        /// </summary>
+        public override void OnProjectXmlSaved(XElement xElement)
+        {
+            SubsystemBreeding.SaveXmlStates(xElement);
         }
 
         // ==================== 实体生命周期 ====================

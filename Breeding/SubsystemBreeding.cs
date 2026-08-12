@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Xml.Linq;
 using Engine;
 using GameEntitySystem;
 using Game;
+using XmlUtilities;
 
 namespace Game
 {
@@ -35,6 +37,15 @@ namespace Game
         /// 队列项超过 5 秒未匹配自动清理。
         /// </summary>
         static readonly List<PendingSaddleRevert> s_pendingReverts = new();
+
+        /// <summary>
+        /// ProjectXmlLoad 缓存的活体生物状态(EntityId → Base64 JSON)。
+        /// 活着的生物(在视野内、未被 Despawn)通过 Project.LoadEntities 恢复，不走 OnReadSpawnData，
+        /// 其繁殖状态只存在于内存 s_states，退出世界时会丢失。
+        /// 此缓存由 ProjectXmlLoad 钩子从 Project.xml 的 &lt;BreedingModStates&gt; 节点读取，
+        /// 在 Initialize backfill 阶段按 EntityId 恢复，backfill 完成后清空。
+        /// </summary>
+        static readonly Dictionary<int, string> s_xmlCachedStates = new();
 
         // ==================== 缓存的子系统 ====================
 
@@ -108,10 +119,10 @@ namespace Game
             // 补注册在 Initialize 之前已 AddEntity 的实体
             // (Project.LoadEntities → OnEntityAdd 在 OnProjectLoaded/Initialize 之前触发，
             //  此时 s_initialized=false 导致 OnEntityAdd 跳过。这里遍历补建)
-            // 注意：OnReadSpawnData 在 Initialize 之前已被引擎调用，此时虽 s_initialized=false，
-            // 但会先把反序列化的存档状态缓存到 s_states。这里要区分两种情况：
-            //   1. s_states 已有缓存(有存档)：校验模板名 + 补应用体型(OnReadSpawnData 跳过了体型应用)
-            //   2. s_states 无缓存(无存档，如自然生成的新生物)：按自然生成成体初始化
+            // 三种情况：
+            //   1. s_states 已有缓存(OnReadSpawnData 在 Initialize 前缓存)：校验模板名 + 补应用体型
+            //   2. s_xmlCachedStates 有缓存(活着的生物，Project.xml 持久化)：反序列化 + 校验 + 应用体型
+            //   3. 无任何存档(新生物/首次生成)：按自然生成成体初始化
             if (cfg?.Enabled == true && project.Entities != null)
             {
                 int backfilled = 0;
@@ -141,7 +152,22 @@ namespace Game
                         }
                     }
 
-                    // 情况2：无存档状态(或模板名不匹配已移除) → 按自然生成成体初始化
+                    // 情况2：从 Project.xml 的 <BreedingModStates> 恢复(活着的生物，未走 Despawn/OnReadSpawnData)
+                    if (s_xmlCachedStates.TryGetValue(existing.Id, out string xmlData))
+                    {
+                        BreedingState xmlState = BreedingState.Deserialize(xmlData);
+                        if (xmlState != null
+                            && string.Equals(xmlState.TemplateName, normTn, StringComparison.Ordinal))
+                        {
+                            s_states[existing] = xmlState;
+                            CacheAndApplyBoxSize(existing, xmlState, cfg);
+                            backfilled++;
+                            continue;
+                        }
+                        // 反序列化失败或模板名不匹配 → 落入情况3
+                    }
+
+                    // 情况3：无任何存档(新生物/首次生成) → 按自然生成成体初始化
                     BreedingState st = new()
                     {
                         TemplateName = normTn,
@@ -156,6 +182,80 @@ namespace Game
                     backfilled++;
                 }
             }
+
+            // backfill 完成，XML 缓存不再需要
+            s_xmlCachedStates.Clear();
+        }
+
+        // ==================== Project.xml 持久化(活着的生物状态) ====================
+
+        /// <summary>
+        /// ProjectXmlLoad 钩子：世界加载时从 Project.xml 读取活体生物的繁殖状态。
+        /// 活着的生物(在视野内、未被 Despawn)通过 Project.LoadEntities 恢复，不走 OnReadSpawnData，
+        /// 其繁殖状态需通过 Project.xml 的 &lt;BreedingModStates&gt; 节点持久化。
+        /// 此方法在 ProjectData 构造(实体创建)之前触发，数据缓存到 s_xmlCachedStates，
+        /// 供 Initialize backfill 按 EntityId 恢复。
+        /// </summary>
+        public static void LoadXmlStates(XElement projectNode)
+        {
+            s_xmlCachedStates.Clear();
+            if (projectNode == null) return;
+
+            XElement statesNode = projectNode.Element("BreedingModStates");
+            if (statesNode == null) return;
+
+            int count = 0;
+            foreach (XElement stateEl in statesNode.Elements("State"))
+            {
+                int entityId = XmlUtils.GetAttributeValue(stateEl, "EntityId", 0);
+                string data = XmlUtils.GetAttributeValue(stateEl, "Data", string.Empty);
+                if (entityId != 0 && !string.IsNullOrEmpty(data))
+                {
+                    s_xmlCachedStates[entityId] = data;
+                    count++;
+                }
+            }
+            Log.Information($"[Breeding] 从 Project.xml 读取 {count} 个活体生物状态");
+        }
+
+        /// <summary>
+        /// OnProjectXmlSaved 钩子：世界保存时把活着的生物的繁殖状态写入 Project.xml。
+        /// 被 Despawn 的生物已通过 OnSaveSpawnData → SpawnEntityData.Data → SubsystemSpawn.Save 保存，
+        /// 不在此处理。此处只处理 s_states 中仍然存活的生物(未被 Despawn)。
+        /// </summary>
+        public static void SaveXmlStates(XElement projectNode)
+        {
+            if (projectNode == null) return;
+
+            // 移除旧节点(避免重复)
+            projectNode.Element("BreedingModStates")?.Remove();
+
+            if (s_states.Count == 0) return;
+
+            XElement statesNode = new("BreedingModStates");
+            foreach (KeyValuePair<Entity, BreedingState> kv in s_states)
+            {
+                Entity entity = kv.Key;
+                BreedingState state = kv.Value;
+                if (entity == null || state == null) continue;
+
+                XElement stateEl = new("State");
+                XmlUtils.SetAttributeValue(stateEl, "EntityId", entity.Id);
+                XmlUtils.SetAttributeValue(stateEl, "Data", state.Serialize());
+                statesNode.Add(stateEl);
+            }
+
+            if (statesNode.HasElements)
+            {
+                projectNode.Add(statesNode);
+                Log.Information($"[Breeding] 写入 {statesNode.Elements().Count()} 个活体生物状态到 Project.xml");
+            }
+        }
+
+        /// <summary>OnProjectDisposed 钩子：世界卸载时清空 XML 缓存，避免跨世界残留。</summary>
+        public static void ClearXmlCache()
+        {
+            s_xmlCachedStates.Clear();
         }
 
         // ==================== 实体生命周期钩子 ====================
