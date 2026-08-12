@@ -145,11 +145,11 @@ namespace Game
             if (health != null && health.DeathTime.HasValue) return;
 
             // 头顶世界坐标(参考原版 ComponentDisplayHealthAndNameBehavior)
-            // 整体上移 0.5 格，避免贴头太近；行距 0.25 格
+            // 整体上移 0.9 格避免贴头太近；行距 0.20 格(紧凑版，原 0.25)
             float height = body.BoxSize.Y;
             Vector3 headPos = body.Position + Vector3.UnitY * height + new Vector3(0f, 0.9f, 0f);
-            Vector3 line2Pos = body.Position + Vector3.UnitY * height + new Vector3(0f, 0.65f, 0f);
-            Vector3 line3Pos = body.Position + Vector3.UnitY * height + new Vector3(0f, 0.4f, 0f);
+            Vector3 line2Pos = body.Position + Vector3.UnitY * height + new Vector3(0f, 0.70f, 0f);
+            Vector3 line3Pos = body.Position + Vector3.UnitY * height + new Vector3(0f, 0.50f, 0f);
 
             // 转视图空间
             Vector3 vector = Vector3.Transform(headPos, camera.ViewMatrix);
@@ -208,10 +208,14 @@ namespace Game
 
         /// <summary>
         /// 用 FlatBatch3D.QueueQuad 在视图空间绘制矩形进度条。
+        /// 单位说明：right/down 向量长度 = 0.005，即 1 单位 = 1 屏幕像素。
         /// 布局(均以 right/down 为视图空间单位向量，与文字行高对齐)：
-        ///   - 条宽 = 24 个文字单位，条高 = 3 个文字单位(放大版，远距离易看清)
-        ///   - 条位于基准点 vector3 下方 3 个单位处(避免与百分比文字重叠)
+        ///   - 条宽 = 72 像素，条高 = 9 像素(放大 3 倍版，远距离易看清)
+        ///   - 条位于基准点 vector3 下方 2 像素处(紧凑间距，避免与百分比文字重叠)
         ///   - 背景灰半透明矩形 + 前景绿色矩形(宽度 = 总宽 × progress)
+        ///   - Z 偏置：所有顶点朝相机方向(+Z)偏移 0.01 视图单位，
+        ///     保证进度条在 DepthRead 测试中胜过生物自身模型，避免被头部/身体遮挡(原 bug 修复)。
+        ///     该偏置很小，不会穿透前方墙体(墙更近，深度仍小于偏置后的进度条)。
         /// 颜色乘以 baseColor 实现与文字一致的远距离淡出。
         /// </summary>
         static void DrawProgressBar(SubsystemModelsRenderer modelsRenderer,
@@ -224,13 +228,14 @@ namespace Game
                 RasterizerState.CullNoneScissor,
                 BlendState.AlphaBlend);
 
-            const float barWidth = 24f;      // 进度条总宽(文字单位) — 放大版
-            const float barHeight = 3f;      // 进度条高度(文字单位) — 放大版
-            const float offsetY = 3f;        // 相对百分比文字下移量(避免重叠)
+            const float barWidth = 72f;      // 进度条总宽(像素) — 放大 3 倍
+            const float barHeight = 9f;      // 进度条高度(像素) — 放大 3 倍
+            const float offsetY = 2f;        // 相对百分比文字下移量(像素，紧凑)
+            const float zBias = 0.01f;       // 朝相机 Z 偏置，避免被自身模型遮挡
             float halfW = barWidth * 0.5f;
 
-            // 进度条中心位于 vector3 正下方 offsetY 个单位
-            Vector3 center = vector3 + down * offsetY;
+            // 进度条中心位于 vector3 正下方 offsetY 像素，再朝相机偏移 zBias
+            Vector3 center = vector3 + down * offsetY + Vector3.UnitZ * zBias;
 
             // 背景矩形(灰半透明)：左上 / 右上 / 左下 / 右下
             Color bgColor = new Color(40, 40, 40, 180) * baseColor;
