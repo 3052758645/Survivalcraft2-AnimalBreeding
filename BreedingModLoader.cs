@@ -110,7 +110,7 @@ namespace Game
         /// 在此为被追踪的繁殖生物入队 3 行浮动文字：
         ///   第1行：性别 + 生物显示名(例如 "♂公 灰狼")
         ///   第2行：成长阶段 + 繁殖状态(例如 "幼崽期 | 成长中" / "成年期 | 怀孕中(0.5天)")
-        ///   第3行：成长进度百分比 + 文字进度条(例如 "成长 60% [███░░]")
+        ///   第3行：成长进度百分比 + 文字进度条(例如 "成长 60% [###---]")
         ///
         /// 用 SubsystemBreeding.ModelsRenderer.PrimitivesRenderer.FontBatch(layer=1) 入队，
         /// 由 SubsystemModelsRenderer 在 DrawOrder=201 时统一 Flush(camera.ProjectionMatrix)，无需自己 Flush。
@@ -198,12 +198,12 @@ namespace Game
             }
         }
 
-        /// <summary>生成 6 格 ASCII 进度条。进度 0 → "[░░░░░░]"，进度 1 → "[██████]"。</summary>
+        /// <summary>生成 6 格 ASCII 进度条(用 # / - 避免游戏字体对 Unicode 块字符渲染异常)。进度 0 → "[------]"，进度 1 → "[######]"。</summary>
         static string BuildProgressBar(float progress)
         {
             const int blocks = 6;
             int filled = (int)Math.Clamp(Math.Round(progress * blocks), 0, blocks);
-            return "[" + new string('█', filled) + new string('░', blocks - filled) + "]";
+            return "[" + new string('#', filled) + new string('-', blocks - filled) + "]";
         }
     }
 }
