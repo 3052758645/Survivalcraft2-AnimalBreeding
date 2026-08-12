@@ -696,7 +696,7 @@ namespace Game
                 return;
             }
 
-            Log.Information($"[Breeding] OnReadSpawnData: 实体 #{entity.Id} ({entity.ValuesDictionary.DatabaseObject?.Name})，来源={source}，存档性别={state.Gender}，已存在={wasInStates}，旧性别={oldState?.Gender}");
+            Log.Information($"[Breeding] OnReadSpawnData: 实体 #{entity.Id} ({entity.ValuesDictionary.DatabaseObject?.Name})，来源={source}，存档性别={state.Gender}，已存在={wasInStates}，旧性别={oldState?.Gender}，s_initialized={s_initialized}");
 
             s_states[entity] = state;
 
