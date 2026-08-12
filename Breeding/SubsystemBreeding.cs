@@ -282,12 +282,6 @@ namespace Game
         /// 不在此处理。此处只处理 s_states 中仍然存活的生物(未被 Despawn)。
         /// </summary>
         public static void SaveXmlStates(XElement projectNode)
-        /// <summary>
-        /// OnProjectXmlSaved 钩子：世界保存时把活着的生物的繁殖状态写入 Project.xml。
-        /// 被 Despawn 的生物已通过 OnSaveSpawnData → SpawnEntityData.Data → SubsystemSpawn.Save 保存，
-        /// 不在此处理。此处只处理 s_states 中仍然存活的生物(未被 Despawn)。
-        /// </summary>
-        public static void SaveXmlStates(XElement projectNode)
         {
             if (projectNode == null)
             {
