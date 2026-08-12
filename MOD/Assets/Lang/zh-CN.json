@@ -1,0 +1,22 @@
+{
+  "BreedingMod": {
+    "Gender": {
+      "Male": "♂公",
+      "Female": "♀母"
+    },
+    "Stage": {
+      "Cub": "幼崽期",
+      "Adult": "成年期"
+    },
+    "Status": {
+      "Pregnant": "怀孕中({0}秒)",
+      "Weak": "虚弱中({0}秒)",
+      "EstrusMating": "发情中(相处{0}秒)",
+      "Estrus": "发情中",
+      "NeedFeeding": "需喂食",
+      "NotInSeason": "未在季",
+      "Growing": "成长中"
+    },
+    "Growth": "成长 {0}%"
+  }
+}

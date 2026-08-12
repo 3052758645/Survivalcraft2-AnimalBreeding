@@ -108,45 +108,49 @@ namespace Game
             return Math.Clamp((float)(age / cubDurationDays), 0f, 1f);
         }
 
-        /// <summary>成长阶段中文显示名。</summary>
+        /// <summary>成长阶段显示名(走国际化)。</summary>
         public string GetStageDisplayName()
         {
-            return Stage == GrowthStage.Cub ? "幼崽期" : "成年期";
+            return Stage == GrowthStage.Cub
+                ? LanguageControl.Get("BreedingMod", "Stage", "Cub")
+                : LanguageControl.Get("BreedingMod", "Stage", "Adult");
         }
 
-        /// <summary>性别中文显示名。</summary>
+        /// <summary>性别显示名(走国际化)。</summary>
         public string GetGenderDisplayName()
         {
-            return Gender == BreedingGender.Male ? "♂公" : "♀母";
+            return Gender == BreedingGender.Male
+                ? LanguageControl.Get("BreedingMod", "Gender", "Male")
+                : LanguageControl.Get("BreedingMod", "Gender", "Female");
         }
 
-        /// <summary>繁殖状态简述(渲染显示用)。怀孕优先显示，其次虚弱，最后发情/喂食。</summary>
+        /// <summary>繁殖状态简述(渲染显示用，走国际化)。怀孕优先显示，其次虚弱，最后发情/喂食。</summary>
         public string GetBreedingStatus(SpeciesConfig species = null)
         {
             // 母体怀孕优先显示(即使同时处于虚弱期)
             if (Gender == BreedingGender.Female && PregnancyRemainingSeconds > 0f)
             {
-                return $"怀孕中({PregnancyRemainingSeconds:F0}秒)";
+                return string.Format(LanguageControl.Get("BreedingMod", "Status", "Pregnant"), PregnancyRemainingSeconds.ToString("F0"));
             }
             if (IsWeak)
             {
-                return $"虚弱中({WeaknessRemainingSeconds:F0}秒)";
+                return string.Format(LanguageControl.Get("BreedingMod", "Status", "Weak"), WeaknessRemainingSeconds.ToString("F0"));
             }
             if (IsInEstrus)
             {
                 if (Gender == BreedingGender.Female && MatingProximitySeconds > 0f)
                 {
-                    return $"发情中(相处{MatingProximitySeconds:F0}秒)";
+                    return string.Format(LanguageControl.Get("BreedingMod", "Status", "EstrusMating"), MatingProximitySeconds.ToString("F0"));
                 }
-                return "发情中";
+                return LanguageControl.Get("BreedingMod", "Status", "Estrus");
             }
             // 条件性繁衍：在季节内但未喂食 → 提示需喂食
             if (species != null && species.RequireFeeding && IsAdult && !IsFed)
             {
-                return "需喂食";
+                return LanguageControl.Get("BreedingMod", "Status", "NeedFeeding");
             }
-            if (IsAdult) return "未在季";
-            return "成长中";
+            if (IsAdult) return LanguageControl.Get("BreedingMod", "Status", "NotInSeason");
+            return LanguageControl.Get("BreedingMod", "Status", "Growing");
         }
 
         // ==================== JSON 持久化 ====================

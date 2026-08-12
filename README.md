@@ -176,16 +176,17 @@ scale = CubBoxScale + (成年scale - CubBoxScale) × 成长进度
 
 ## 三、头顶浮动文字
 
-每只被繁殖系统追踪的狼头顶会显示 3 行浮动文字 + 1 个图形进度条：
+每只被繁殖系统追踪的生物头顶会显示 3 行浮动文字 + 1 个图形进度条：
 
 ```
 ♂公 灰狼                    ← 第1行：性别 + 生物名
 成年期 | 发情中               ← 第2行：成长阶段 + 繁殖状态
 成长 60%                    ← 第3行：成长进度百分比
-[████████░░░░]              ← 第4行：图形进度条(代码绘制矩形，绿色填充按进度)
+[████████████░░░░░░░░]      ← 第4行：图形进度条(代码绘制矩形，绿色填充按进度)
 ```
 
-> 第 4 行进度条用 `FlatBatch3D.QueueQuad` 在视图空间直接绘制矩形(背景灰半透明 + 前景绿色按进度填充)，不依赖字符渲染，效果稳定无字体适配问题。
+> - 第 4 行进度条用 `FlatBatch3D.QueueQuad` 在视图空间直接绘制矩形(背景灰半透明 + 前景绿色按进度填充)，不依赖字符渲染，效果稳定无字体适配问题。进度条已放大(宽 24 / 高 3 文字单位)，远距离更易看清。
+> - 所有显示文字均走**国际化**，根据游戏当前语言自动切换。翻译文件位于 `MOD/Assets/Lang/`，目前提供 `zh-CN.json`(简体中文)。其他语言欢迎贡献翻译，只需添加对应的 `xx-XX.json` 文件即可。
 
 ### 第 2 行 — 繁殖状态详解
 
@@ -348,7 +349,9 @@ hykj-breeding-mod/
 ├── MOD/                           # 模组打包目录
 │   ├── modinfo.json               # 模组元信息
 │   └── Assets/
-│       └── BreedingConfig.json    # 外部配置文件（退出世界重进即生效）
+│       ├── BreedingConfig.json    # 外部配置文件（退出世界重进即生效）
+│       └── Lang/
+│           └── zh-CN.json         # 简体中文翻译（浮动文字）
 └── Quoted/                        # 游戏程序集引用（需自行放入）
     ├── Engine.dll
     ├── EntitySystem.dll
@@ -364,7 +367,45 @@ hykj-breeding-mod/
 | [Breeding/BreedingState.cs](Breeding/BreedingState.cs) | 单只动物的运行时状态（性别/阶段/孕期/虚弱/相处计时/追求目标），含 JSON 序列化 |
 | [Breeding/BreedingConfig.cs](Breeding/BreedingConfig.cs) | 配置加载与缓存（全局开关 + 按物种独立配置所有繁殖参数） |
 | [MOD/Assets/BreedingConfig.json](MOD/Assets/BreedingConfig.json) | 外部配置文件 |
+| [MOD/Assets/Lang/zh-CN.json](MOD/Assets/Lang/zh-CN.json) | 简体中文翻译（浮动文字国际化） |
 | [CONFIG.md](CONFIG.md) | 配置参数详细文档 |
+
+---
+
+## 七点五、国际化（i18n）
+
+头顶浮动文字的所有显示内容（性别、成长阶段、繁殖状态、成长进度）均通过 `LanguageControl.Get()` 走国际化，根据游戏当前语言自动切换。
+
+### 翻译文件位置
+
+```
+MOD/Assets/Lang/
+├── zh-CN.json   ← 简体中文（已提供）
+└── xx-XX.json   ← 其他语言（欢迎贡献翻译）
+```
+
+> 游戏会自动加载 `Assets/Lang/en-US.json`（英文回退）和 `Assets/Lang/{当前语言}.json`。未找到翻译的键会回退到英文，再找不到则显示键名。
+
+### 翻译键一览
+
+| 键路径 | 中文值 | 说明 |
+|--------|--------|------|
+| `BreedingMod.Gender.Male` | `♂公` | 公体 |
+| `BreedingMod.Gender.Female` | `♀母` | 母体 |
+| `BreedingMod.Stage.Cub` | `幼崽期` | 幼崽阶段 |
+| `BreedingMod.Stage.Adult` | `成年期` | 成年阶段 |
+| `BreedingMod.Status.Pregnant` | `怀孕中({0}秒)` | `{0}`=剩余秒数 |
+| `BreedingMod.Status.Weak` | `虚弱中({0}秒)` | `{0}`=剩余秒数 |
+| `BreedingMod.Status.EstrusMating` | `发情中(相处{0}秒)` | `{0}`=相处秒数 |
+| `BreedingMod.Status.Estrus` | `发情中` | 发情中 |
+| `BreedingMod.Status.NeedFeeding` | `需喂食` | 需喂食才发情 |
+| `BreedingMod.Status.NotInSeason` | `未在季` | 不在繁殖季节 |
+| `BreedingMod.Status.Growing` | `成长中` | 幼崽成长中 |
+| `BreedingMod.Growth` | `成长 {0}%` | `{0}`=百分比数字 |
+
+### 贡献翻译
+
+只需复制 `zh-CN.json`，改名为对应语言代码（如 `en-US.json`、`ja-JP.json`），翻译值即可。`{0}` 是占位符，保留不动。
 
 ---
 

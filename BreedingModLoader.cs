@@ -145,10 +145,11 @@ namespace Game
             if (health != null && health.DeathTime.HasValue) return;
 
             // 头顶世界坐标(参考原版 ComponentDisplayHealthAndNameBehavior)
+            // 整体上移 0.5 格，避免贴头太近；行距 0.25 格
             float height = body.BoxSize.Y;
-            Vector3 headPos = body.Position + Vector3.UnitY * height + new Vector3(0f, 0.4f, 0f);
-            Vector3 line2Pos = body.Position + Vector3.UnitY * height + new Vector3(0f, 0.2f, 0f);
-            Vector3 line3Pos = body.Position + Vector3.UnitY * height + new Vector3(0f, 0.0f, 0f);
+            Vector3 headPos = body.Position + Vector3.UnitY * height + new Vector3(0f, 0.9f, 0f);
+            Vector3 line2Pos = body.Position + Vector3.UnitY * height + new Vector3(0f, 0.65f, 0f);
+            Vector3 line3Pos = body.Position + Vector3.UnitY * height + new Vector3(0f, 0.4f, 0f);
 
             // 转视图空间
             Vector3 vector = Vector3.Transform(headPos, camera.ViewMatrix);
@@ -195,7 +196,7 @@ namespace Game
             {
                 float progress = state.GetGrowthProgress(currentDay, species.CubDurationDays);
                 int percent = (int)Math.Round(progress * 100f);
-                string line3 = "成长 " + percent.ToString() + "%";
+                string line3 = string.Format(LanguageControl.Get("BreedingMod", "Growth"), percent.ToString());
                 fontBatch.QueueText(line3, vector3, right, down, color * 0.85f, TextAnchor.HorizontalCenter | TextAnchor.Bottom);
 
                 // ==================== 第4行：图形进度条(FlatBatch3D 画矩形) ====================
@@ -208,8 +209,8 @@ namespace Game
         /// <summary>
         /// 用 FlatBatch3D.QueueQuad 在视图空间绘制矩形进度条。
         /// 布局(均以 right/down 为视图空间单位向量，与文字行高对齐)：
-        ///   - 条宽 = 12 个文字单位，条高 = 1.4 个文字单位
-        ///   - 条位于基准点 vector3 下方 2 个单位处(避免与百分比文字重叠)
+        ///   - 条宽 = 24 个文字单位，条高 = 3 个文字单位(放大版，远距离易看清)
+        ///   - 条位于基准点 vector3 下方 3 个单位处(避免与百分比文字重叠)
         ///   - 背景灰半透明矩形 + 前景绿色矩形(宽度 = 总宽 × progress)
         /// 颜色乘以 baseColor 实现与文字一致的远距离淡出。
         /// </summary>
@@ -223,9 +224,9 @@ namespace Game
                 RasterizerState.CullNoneScissor,
                 BlendState.AlphaBlend);
 
-            const float barWidth = 12f;      // 进度条总宽(文字单位)
-            const float barHeight = 1.4f;    // 进度条高度(文字单位)
-            const float offsetY = 2f;        // 相对百分比文字下移量(避免重叠)
+            const float barWidth = 24f;      // 进度条总宽(文字单位) — 放大版
+            const float barHeight = 3f;      // 进度条高度(文字单位) — 放大版
+            const float offsetY = 3f;        // 相对百分比文字下移量(避免重叠)
             float halfW = barWidth * 0.5f;
 
             // 进度条中心位于 vector3 正下方 offsetY 个单位
