@@ -58,11 +58,14 @@ namespace Game
         /// <summary>
         /// 世界加载时、ProjectData 构造之前触发。读取 Project.xml 中的活体生物繁殖状态。
         /// 时序：ProjectXmlLoad → ProjectData 构造(创建实体) → OnEntityAdd → OnProjectLoaded(Initialize)。
+        /// 注：使用单参数重载(兼容旧版 DLL；三参数重载在较新版本才提供)。
         /// </summary>
-        public override void ProjectXmlLoad(XElement xElement, WorldInfo worldInfo, ContainerWidget gameWidget)
+#pragma warning disable CS0618
+        public override void ProjectXmlLoad(XElement xElement)
         {
             SubsystemBreeding.LoadXmlStates(xElement);
         }
+#pragma warning restore CS0618
 
         /// <summary>
         /// 世界保存时、ProjectData.Save 之后、写盘之前触发。把活体生物繁殖状态写入 Project.xml。
