@@ -47,6 +47,12 @@ namespace Game
         /// </summary>
         static readonly Dictionary<int, string> s_xmlCachedStates = new();
 
+        /// <summary>
+        /// 当前世界目录路径(Initialize 时缓存，用于 OnProjectDisposed 时保存到单独文件)。
+        /// 作为 ProjectXmlSave/OnProjectXmlSaved 钩子不可用时的备选保存路径。
+        /// </summary>
+        static string s_worldDirectory;
+
         // ==================== 缓存的子系统 ====================
 
         static Project s_project;
@@ -94,6 +100,11 @@ namespace Game
 
             BreedingConfig.Load();
             BreedingConfig cfg = BreedingConfig.Current;
+
+            // 缓存世界目录路径(用于 OnProjectDisposed 时保存到单独文件)
+            SubsystemGameInfo gameInfo = project.FindSubsystem<SubsystemGameInfo>(true);
+            s_worldDirectory = gameInfo?.DirectoryName;
+
             if (cfg?.Enabled == true)
             {
                 Log.Information($"[Breeding] 初始化完成，追踪物种数={cfg.Species.Count}");
@@ -116,6 +127,39 @@ namespace Game
                 }
             }
 
+            // 备选加载：如果 ProjectXmlLoad 钩子未被调用(旧版 DLL 可能不支持)，
+            // s_xmlCachedStates 为空。此时直接从 Project.xml 文件读取 BreedingModStates 节点。
+            if (s_xmlCachedStates.Count == 0 && cfg?.Enabled == true)
+            {
+                try
+                {
+                    if (gameInfo != null && !string.IsNullOrEmpty(gameInfo.DirectoryName))
+                    {
+                        string projectXmlPath = Storage.CombinePaths(gameInfo.DirectoryName, "Project.xml");
+                        if (Storage.FileExists(projectXmlPath))
+                        {
+                            Log.Information("[Breeding] ProjectXmlLoad 钩子未缓存数据，尝试直接读取 Project.xml 文件");
+                            using (System.IO.Stream stream = Storage.OpenFile(projectXmlPath, OpenFileMode.Read))
+                            {
+                                XElement projectNode = XmlUtils.LoadXmlFromStream(stream, null, true);
+                                LoadXmlStates(projectNode);
+                            }
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    Log.Warning($"[Breeding] 直接读取 Project.xml 失败: {e.Message}");
+                }
+            }
+
+            // 备选加载2：如果 Project.xml 中也没有 BreedingModStates(保存钩子未被调用)，
+            // 尝试从单独文件 BreedingStates.xml 读取(由 OnProjectDisposed 备选保存)。
+            if (s_xmlCachedStates.Count == 0 && cfg?.Enabled == true)
+            {
+                LoadStatesFromFile();
+            }
+
             // 补注册在 Initialize 之前已 AddEntity 的实体
             // (Project.LoadEntities → OnEntityAdd 在 OnProjectLoaded/Initialize 之前触发，
             //  此时 s_initialized=false 导致 OnEntityAdd 跳过。这里遍历补建)
@@ -126,6 +170,7 @@ namespace Game
             if (cfg?.Enabled == true && project.Entities != null)
             {
                 int backfilled = 0;
+                int hit1 = 0, hit2 = 0, hit3 = 0; // 诊断：各情况命中次数
                 foreach (Entity existing in project.Entities)
                 {
                     ComponentCreature creature = existing.FindComponent<ComponentCreature>();
@@ -148,6 +193,7 @@ namespace Game
                         {
                             CacheAndApplyBoxSize(existing, cached, cfg); // 补缓存 OriginalBoxSize + 应用体型
                             backfilled++;
+                            hit1++;
                             continue;
                         }
                     }
@@ -162,9 +208,11 @@ namespace Game
                             s_states[existing] = xmlState;
                             CacheAndApplyBoxSize(existing, xmlState, cfg);
                             backfilled++;
+                            hit2++;
                             continue;
                         }
                         // 反序列化失败或模板名不匹配 → 落入情况3
+                        Log.Warning($"[Breeding] 情况2失败: entityId={existing.Id}, template={normTn}, xmlStateNull={xmlState == null}");
                     }
 
                     // 情况3：无任何存档(新生物/首次生成) → 按自然生成成体初始化
@@ -180,7 +228,9 @@ namespace Game
                     s_states[existing] = st;
                     CacheAndApplyBoxSize(existing, st, cfg);
                     backfilled++;
+                    hit3++;
                 }
+                Log.Information($"[Breeding] backfill 完成: 总数={backfilled}, 情况1(存档)={hit1}, 情况2(XML)={hit2}, 情况3(随机)={hit3}, xmlCached={s_xmlCachedStates.Count}");
             }
 
             // backfill 完成，XML 缓存不再需要
@@ -199,10 +249,18 @@ namespace Game
         public static void LoadXmlStates(XElement projectNode)
         {
             s_xmlCachedStates.Clear();
-            if (projectNode == null) return;
+            if (projectNode == null)
+            {
+                Log.Warning("[Breeding] LoadXmlStates: projectNode 为 null");
+                return;
+            }
 
             XElement statesNode = projectNode.Element("BreedingModStates");
-            if (statesNode == null) return;
+            if (statesNode == null)
+            {
+                Log.Information("[Breeding] LoadXmlStates: Project.xml 中无 BreedingModStates 节点(首次进入或上次保存失败)");
+                return;
+            }
 
             int count = 0;
             foreach (XElement stateEl in statesNode.Elements("State"))
@@ -215,7 +273,7 @@ namespace Game
                     count++;
                 }
             }
-            Log.Information($"[Breeding] 从 Project.xml 读取 {count} 个活体生物状态");
+            Log.Information($"[Breeding] LoadXmlStates: 从 Project.xml 读取 {count} 个活体生物状态");
         }
 
         /// <summary>
@@ -225,10 +283,16 @@ namespace Game
         /// </summary>
         public static void SaveXmlStates(XElement projectNode)
         {
-            if (projectNode == null) return;
+            if (projectNode == null)
+            {
+                Log.Warning("[Breeding] SaveXmlStates: projectNode 为 null");
+                return;
+            }
 
-            // 移除旧节点(避免重复)
+            // 移除旧节点(避免重复，ProjectXmlSave 和 OnProjectXmlSaved 都会调用此方法)
             projectNode.Element("BreedingModStates")?.Remove();
+
+            Log.Information($"[Breeding] SaveXmlStates: s_states.Count={s_states.Count}");
 
             if (s_states.Count == 0) return;
 
@@ -248,14 +312,105 @@ namespace Game
             if (statesNode.HasElements)
             {
                 projectNode.Add(statesNode);
-                Log.Information($"[Breeding] 写入 {statesNode.Elements().Count()} 个活体生物状态到 Project.xml");
+                Log.Information($"[Breeding] SaveXmlStates: 写入 {statesNode.Elements().Count()} 个活体生物状态到 Project.xml");
+            }
+            else
+            {
+                Log.Warning("[Breeding] SaveXmlStates: s_states 非空但无有效条目可写入");
             }
         }
 
-        /// <summary>OnProjectDisposed 钩子：世界卸载时清空 XML 缓存，避免跨世界残留。</summary>
+        /// <summary>OnProjectDisposed 钩子：世界卸载时保存活体状态到单独文件 + 清空缓存。</summary>
         public static void ClearXmlCache()
         {
+            // 备选保存：如果 ProjectXmlSave/OnProjectXmlSaved 钩子未被调用(旧版 DLL)，
+            // 在此把活体生物状态保存到单独文件 BreedingStates.xml。
+            // OnProjectDisposed 在 Project.Dispose() 之后触发，但 s_states 仍保留数据
+            // (entity.Id 是 int 字段不受 Dispose 影响，state.Serialize() 不依赖 Entity)。
+            SaveStatesToFile();
             s_xmlCachedStates.Clear();
+        }
+
+        /// <summary>
+        /// 把 s_states 保存到单独文件 BreedingStates.xml(备选保存方案)。
+        /// 文件路径：{世界目录}/BreedingStates.xml
+        /// </summary>
+        static void SaveStatesToFile()
+        {
+            if (string.IsNullOrEmpty(s_worldDirectory) || s_states.Count == 0)
+            {
+                Log.Information($"[Breeding] SaveStatesToFile: 跳过(worldDir={s_worldDirectory}, states={s_states.Count})");
+                return;
+            }
+
+            try
+            {
+                XElement root = new("BreedingStates");
+                int count = 0;
+                foreach (KeyValuePair<Entity, BreedingState> kv in s_states)
+                {
+                    if (kv.Key == null || kv.Value == null) continue;
+                    XElement el = new("State");
+                    XmlUtils.SetAttributeValue(el, "EntityId", kv.Key.Id);
+                    XmlUtils.SetAttributeValue(el, "Data", kv.Value.Serialize());
+                    root.Add(el);
+                    count++;
+                }
+
+                if (count > 0)
+                {
+                    string path = Storage.CombinePaths(s_worldDirectory, "BreedingStates.xml");
+                    using (System.IO.Stream stream = Storage.OpenFile(path, OpenFileMode.Create))
+                    {
+                        XmlUtils.SaveXmlToStream(root, stream, null, true);
+                    }
+                    Log.Information($"[Breeding] SaveStatesToFile: 保存 {count} 个状态到 BreedingStates.xml");
+                }
+            }
+            catch (Exception e)
+            {
+                Log.Warning($"[Breeding] SaveStatesToFile 失败: {e.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 从单独文件 BreedingStates.xml 读取活体状态(备选加载方案)。
+        /// 读取到 s_xmlCachedStates，供 backfill 使用。
+        /// </summary>
+        static void LoadStatesFromFile()
+        {
+            if (string.IsNullOrEmpty(s_worldDirectory)) return;
+
+            try
+            {
+                string path = Storage.CombinePaths(s_worldDirectory, "BreedingStates.xml");
+                if (!Storage.FileExists(path))
+                {
+                    Log.Information("[Breeding] LoadStatesFromFile: BreedingStates.xml 不存在");
+                    return;
+                }
+
+                using (System.IO.Stream stream = Storage.OpenFile(path, OpenFileMode.Read))
+                {
+                    XElement root = XmlUtils.LoadXmlFromStream(stream, null, true);
+                    int count = 0;
+                    foreach (XElement el in root.Elements("State"))
+                    {
+                        int entityId = XmlUtils.GetAttributeValue(el, "EntityId", 0);
+                        string data = XmlUtils.GetAttributeValue(el, "Data", string.Empty);
+                        if (entityId != 0 && !string.IsNullOrEmpty(data))
+                        {
+                            s_xmlCachedStates[entityId] = data;
+                            count++;
+                        }
+                    }
+                    Log.Information($"[Breeding] LoadStatesFromFile: 从 BreedingStates.xml 读取 {count} 个状态");
+                }
+            }
+            catch (Exception e)
+            {
+                Log.Warning($"[Breeding] LoadStatesFromFile 失败: {e.Message}");
+            }
         }
 
         // ==================== 实体生命周期钩子 ====================

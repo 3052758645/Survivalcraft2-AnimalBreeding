@@ -27,6 +27,7 @@ namespace Game
             ModsManager.RegisterHook("OnProjectLoaded", this);
             ModsManager.RegisterHook("OnProjectDisposed", this);
             ModsManager.RegisterHook("ProjectXmlLoad", this);
+            ModsManager.RegisterHook("ProjectXmlSave", this);
             ModsManager.RegisterHook("OnProjectXmlSaved", this);
             ModsManager.RegisterHook("OnEntityAdd", this);
             ModsManager.RegisterHook("OnEntityRemove", this);
@@ -68,8 +69,18 @@ namespace Game
 #pragma warning restore CS0618
 
         /// <summary>
-        /// 世界保存时、ProjectData.Save 之后、写盘之前触发。把活体生物繁殖状态写入 Project.xml。
-        /// 被 Despawn 的生物已通过 OnSaveSpawnData 保存，此处只处理 s_states 中仍存活的生物。
+        /// 世界保存时、ProjectData.Save 之前触发(备用保存点)。
+        /// 把活体生物繁殖状态写入 Project.xml。SaveXmlStates 内部有 Remove 旧节点逻辑，重复调用安全。
+        /// </summary>
+        public override void ProjectXmlSave(XElement xElement)
+        {
+            SubsystemBreeding.SaveXmlStates(xElement);
+        }
+
+        /// <summary>
+        /// 世界保存时、ProjectData.Save 之后、写盘之前触发(主保存点)。
+        /// 把活体生物繁殖状态写入 Project.xml。被 Despawn 的生物已通过 OnSaveSpawnData 保存，
+        /// 此处只处理 s_states 中仍存活的生物。
         /// </summary>
         public override void OnProjectXmlSaved(XElement xElement)
         {
