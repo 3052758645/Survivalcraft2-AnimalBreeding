@@ -190,34 +190,44 @@ namespace Game
                 fontBatch.QueueText(line2, vector2, right, down, color * 0.85f, TextAnchor.HorizontalCenter | TextAnchor.Bottom);
             }
 
-            // ==================== 第3行：成长进度百分比 ====================
+            // ==================== 第3行：成长进度百分比 + 右侧图形进度条(同一行) ====================
             Vector3 vector3 = Vector3.Transform(line3Pos, camera.ViewMatrix);
             if (vector3.Z < 0f)
             {
                 float progress = state.GetGrowthProgress(currentDay, species.CubDurationDays);
                 int percent = (int)Math.Round(progress * 100f);
                 string line3 = string.Format(LanguageControl.Get("BreedingMod", "Growth"), percent.ToString());
-                fontBatch.QueueText(line3, vector3, right, down, color * 0.85f, TextAnchor.HorizontalCenter | TextAnchor.Bottom);
 
-                // ==================== 第4行：图形进度条(FlatBatch3D 画矩形) ====================
-                // 在百分比文字下方画一个真正的矩形进度条(背景灰 + 前景绿按进度填充)，
-                // 不再依赖字符拼进度条，渲染效果稳定。
-                DrawProgressBar(modelsRenderer, vector3, right, down, progress, color);
+                // 测量文字宽度(像素)，用于定位进度条起点 + 让"文字+间隙+进度条"整体水平居中
+                Vector2 textSize = font.MeasureText(line3, new Vector2(right.Length(), down.Length()), Vector2.Zero);
+                float textWidthPx = textSize.X / right.Length(); // 还原成"像素单位"(与 barWidth 同尺度)
+                const float barWidth = 100f;     // 进度条总宽(像素)
+                const float gapPx = 6f;          // 文字与进度条之间的间隙(像素)
+                float totalWidthPx = textWidthPx + gapPx + barWidth;
+                float halfTotalPx = totalWidthPx * 0.5f;
+
+                // 文字左对齐：起点 = vector3 左移 halfTotalPx(让整体居中)，垂直底部对齐
+                Vector3 textPos = vector3 + right * -halfTotalPx;
+                fontBatch.QueueText(line3, textPos, right, down, color * 0.85f, TextAnchor.Left | TextAnchor.Bottom);
+
+                // 进度条：紧跟文字右侧 gapPx 像素处，barOrigin 即进度条左上角
+                Vector3 barOrigin = textPos + right * (textWidthPx + gapPx);
+                DrawProgressBar(modelsRenderer, barOrigin, right, down, progress, color);
             }
         }
 
         /// <summary>
-        /// 用 FlatBatch3D 在视图空间绘制带白色边框的矩形进度条。
+        /// 用 FlatBatch3D 在视图空间绘制带白色边框的矩形进度条(与文字同一行，紧贴文字右侧)。
         /// 单位说明：right/down 向量长度 = 0.005，即 1 单位 = 1 屏幕像素。
+        /// barOrigin 为进度条左上角预期位置(视图空间)，方法内部做 Z 偏置。
         /// 绘制层次(由内到外，所有顶点朝相机方向 +Z 偏置 zBias 避免被自身模型遮挡)：
         ///   1. 背景填充矩形(灰半透明，固定大小，覆盖整个进度条区域)
         ///   2. 前景填充矩形(绿色，宽度 = 总宽 × progress，从左对齐填充)
         ///   3. 白色边框(4 条线，固定大小，不随 progress 变化)
-        /// 关于"两个三角形"：GPU 没有矩形图元，QueueQuad 内部用 2 个三角形拼矩形是标准做法，
-        /// 视觉上就是一个完整矩形(无对角线，因为三角形共享对角边且颜色相同)。
+        /// 关于"两个三角形"：GPU 没有矩形图元，QueueTriangle×2 沿对角线拼矩形是标准做法。
         /// </summary>
         static void DrawProgressBar(SubsystemModelsRenderer modelsRenderer,
-            Vector3 vector3, Vector3 right, Vector3 down,
+            Vector3 barOrigin, Vector3 right, Vector3 down,
             float progress, Color baseColor)
         {
             FlatBatch3D flatBatch = modelsRenderer.PrimitivesRenderer.FlatBatch(
@@ -228,13 +238,11 @@ namespace Game
 
             const float barWidth = 100f;     // 进度条总宽(像素) — 加长版
             const float barHeight = 9f;      // 进度条高度(像素)
-            const float offsetY = 2f;        // 相对百分比文字下移量(像素，紧凑)
             const float zBias = 0.01f;       // 朝相机 Z 偏置，避免被自身模型遮挡
-            float halfW = barWidth * 0.5f;
 
-            // 进度条左上角(视图空间)：vector3 正下方 offsetY 像素，再朝相机偏移 zBias
-            Vector3 topLeft = vector3 + down * offsetY + right * -halfW + Vector3.UnitZ * zBias;
-            Vector3 topRgt = vector3 + down * offsetY + right *  halfW + Vector3.UnitZ * zBias;
+            // 进度条四角(视图空间)：barOrigin 为左上角预期位置，朝相机偏置 zBias
+            Vector3 topLeft = barOrigin + Vector3.UnitZ * zBias;
+            Vector3 topRgt  = topLeft + right * barWidth;
             Vector3 botLeft = topLeft + down * barHeight;
             Vector3 botRgt  = topRgt  + down * barHeight;
 
