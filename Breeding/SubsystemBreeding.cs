@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Xml.Linq;
 using Engine;
 using GameEntitySystem;
@@ -70,6 +71,13 @@ namespace Game
 
         /// <summary>体型更新节流计数器(每 60 帧更新一次体型，避免每帧写 BoxSize)。</summary>
         static long s_debugFrameCounter;
+
+        /// <summary>
+        /// 实体ID → SpawnEntityData缓存（仅用于存档实体，不用于自然生成）。
+        /// 由 ProjectXmlLoad 钩子填充，供 OnEntityAdd 钩子按 EntityId 恢复存档状态。
+        /// 自然生成的生物不进入此字典（其 Chunk.SpawnsData 已被消耗清空）。
+        /// </summary>
+        static readonly Dictionary<int, SpawnEntityData> s_entitySpawnDataCache = new();
 
         /// <summary>
         /// 由 BreedingModLoader.OnProjectLoaded 调用，缓存子系统引用并加载配置。
@@ -277,6 +285,50 @@ namespace Game
         }
 
         /// <summary>
+        /// ProjectBeforeSubsystemsAndEntitiesLoad 钩子：在实体创建之后、Subsystem.Load 之前触发。
+        /// 在此阶段可以访问 Project 的 SpawnSubsystem 来缓存存档实体的 SpawnEntityData，
+        /// 以便在 OnEntityAdd 中正确应用存档的性别/体型等状态。
+        /// 时序：AddEntities → BeforeSubsystemsAndEntitiesLoad → Subsystem.Load → LoadEntities → OnProjectLoaded
+        /// </summary>
+        public static void LoadSpawnEntityDataCache(Project project)
+        {
+            s_entitySpawnDataCache.Clear();
+            s_project = project; // 提前缓存 project 引用
+            var spawnSubsystem = project.FindSubsystem<SubsystemSpawn>(true);
+            if (spawnSubsystem == null)
+            {
+                Log.Warning("[Breeding] LoadSpawnEntityDataCache: SubsystemSpawn 为 null");
+                return;
+            }
+            // 通过反射访问 m_spawnEntityDatas（private 字段）
+            try
+            {
+                var fieldInfo = typeof(SubsystemSpawn).GetField("m_spawnEntityDatas",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                if (fieldInfo != null)
+                {
+                    var spawnEntityDatas = fieldInfo.GetValue(spawnSubsystem) as Dictionary<int, SpawnEntityData>;
+                    if (spawnEntityDatas != null)
+                    {
+                        foreach (var kvp in spawnEntityDatas)
+                        {
+                            s_entitySpawnDataCache[kvp.Key] = kvp.Value;
+                        }
+                        Log.Information($"[Breeding] LoadSpawnEntityDataCache: 从 SubsystemSpawn 缓存 {s_entitySpawnDataCache.Count} 个存档实体数据");
+                    }
+                }
+                else
+                {
+                    Log.Warning("[Breeding] LoadSpawnEntityDataCache: 无法找到 m_spawnEntityDatas 字段");
+                }
+            }
+            catch (Exception e)
+            {
+                Log.Warning($"[Breeding] LoadSpawnEntityDataCache: 反射访问失败 - {e.Message}");
+            }
+        }
+
+        /// <summary>
         /// OnProjectXmlSaved 钩子：世界保存时把活着的生物的繁殖状态写入 Project.xml。
         /// 被 Despawn 的生物已通过 OnSaveSpawnData → SpawnEntityData.Data → SubsystemSpawn.Save 保存，
         /// 不在此处理。此处只处理 s_states 中仍然存活的生物(未被 Despawn)。
@@ -329,6 +381,7 @@ namespace Game
             // (entity.Id 是 int 字段不受 Dispose 影响，state.Serialize() 不依赖 Entity)。
             SaveStatesToFile();
             s_xmlCachedStates.Clear();
+            s_entitySpawnDataCache.Clear();
         }
 
         /// <summary>
@@ -450,9 +503,37 @@ namespace Game
                 return;
             }
 
+            // 尝试从存档缓存恢复（EntityId 匹配）
+            int entityId = entity.Id;
+            if (entityId != 0 && s_entitySpawnDataCache.TryGetValue(entityId, out SpawnEntityData spawnData))
+            {
+                BreedingState state = BreedingState.Deserialize(spawnData.Data);
+                if (state != null && !string.IsNullOrEmpty(state.TemplateName))
+                {
+                    // 验证模板名匹配（已归一化）
+                    if (string.Equals(state.TemplateName, normalizedTemplate, StringComparison.Ordinal))
+                    {
+                        s_states[entity] = state;
+                        CacheAndApplyBoxSize(entity, state, cfg);
+                        Log.Information($"[Breeding] OnEntityAdd: 从存档恢复实体 #{entityId} ({normalizedTemplate})，性别={state.Gender}");
+                        return;
+                    }
+                    else
+                    {
+                        Log.Warning($"[Breeding] OnEntityAdd: 实体 #{entityId} 存档模板名({state.TemplateName})与当前模板({normalizedTemplate})不匹配，使用随机生成");
+                    }
+                }
+                else
+                {
+                    Log.Warning($"[Breeding] OnEntityAdd: 实体 #{entityId} 存档数据反序列化失败");
+                }
+                // 清理无效缓存
+                s_entitySpawnDataCache.Remove(entityId);
+            }
+
             // 自然生成的成体：默认成年，性别随机(按配置概率)
             // TemplateName 存归一化后的名字(不带 _Saddled)，便于交配匹配和体型查找
-            BreedingState state = new()
+            BreedingState state2 = new()
             {
                 TemplateName = normalizedTemplate,
                 Gender = s_random.Bool(species.CubMaleProbability) ? BreedingGender.Male : BreedingGender.Female,
@@ -461,10 +542,10 @@ namespace Game
                 PregnancyRemainingSeconds = -1f,
                 WeaknessRemainingSeconds = -1f
             };
-            s_states[entity] = state;
+            s_states[entity] = state2;
 
             // 缓存原版 BoxSize/ModelScale 并应用成年体型
-            CacheAndApplyBoxSize(entity, state, cfg);
+            CacheAndApplyBoxSize(entity, state2, cfg);
         }
 
         /// <summary>

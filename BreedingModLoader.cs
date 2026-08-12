@@ -27,6 +27,7 @@ namespace Game
             ModsManager.RegisterHook("OnProjectLoaded", this);
             ModsManager.RegisterHook("OnProjectDisposed", this);
             ModsManager.RegisterHook("ProjectXmlLoad", this);
+            ModsManager.RegisterHook("ProjectBeforeSubsystemsAndEntitiesLoad", this);
             ModsManager.RegisterHook("ProjectXmlSave", this);
             ModsManager.RegisterHook("OnProjectXmlSaved", this);
             ModsManager.RegisterHook("OnEntityAdd", this);
@@ -67,6 +68,17 @@ namespace Game
             SubsystemBreeding.LoadXmlStates(xElement);
         }
 #pragma warning restore CS0618
+
+        /// <summary>
+        /// 实体创建之后、Subsystem.Load 之前触发。
+        /// 此时 Project.Entities 已存在，可以访问 SubsystemSpawn.m_spawnEntityDatas
+        /// 来缓存存档实体的 SpawnEntityData，供 OnEntityAdd 使用。
+        /// 时序：AddEntities → BeforeSubsystemsAndEntitiesLoad → Subsystem.Load → LoadEntities → OnProjectLoaded
+        /// </summary>
+        public override void ProjectBeforeSubsystemsAndEntitiesLoad(Project project)
+        {
+            SubsystemBreeding.LoadSpawnEntityDataCache(project);
+        }
 
         /// <summary>
         /// 世界保存时、ProjectData.Save 之前触发(备用保存点)。
