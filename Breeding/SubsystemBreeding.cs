@@ -687,12 +687,11 @@ namespace Game
             // 判断数据来源：如果 EntityId 匹配，说明来自 SpawnChunk；否则来自 Project.xml
             string source = spawnEntityData.EntityId == entity.Id ? "SpawnChunk" : "ProjectXml";
             
-            // 只允许在 Initialize 之前（s_initialized=false）且未设置过时更新 s_states，
-            // 避免游戏加载时的重复调用覆盖正确的存档状态。
-            // 注意：OnReadSpawnData 可能被调用多次（来自不同来源），只接受第一次调用。
-            if (wasInStates)
+            // 只允许在 Initialize 之前（s_initialized=false）更新 s_states，
+            // 避免游戏加载时的重复调用（来自临时实体）覆盖正确的存档状态。
+            if (s_initialized)
             {
-                Log.Information($"[Breeding] OnReadSpawnData: 实体 #{entity.Id} ({entity.ValuesDictionary.DatabaseObject?.Name})，来源={source}，存档性别={state.Gender}，已忽略(已存在，旧性别={oldState?.Gender})");
+                Log.Information($"[Breeding] OnReadSpawnData: 实体 #{entity.Id} ({entity.ValuesDictionary.DatabaseObject?.Name})，来源={source}，存档性别={state.Gender}，已忽略(s_initialized=true)");
                 return;
             }
 
