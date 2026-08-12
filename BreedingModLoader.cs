@@ -145,11 +145,11 @@ namespace Game
             if (health != null && health.DeathTime.HasValue) return;
 
             // 头顶世界坐标(参考原版 ComponentDisplayHealthAndNameBehavior)
-            // 整体上移 0.9 格避免贴头太近；行距 0.15 格(更紧凑，原 0.20)
+            // 整体下移到头顶上方 0.5 格(原 0.9，下移 0.4)；行距 0.15 格
             float height = body.BoxSize.Y;
-            Vector3 headPos = body.Position + Vector3.UnitY * height + new Vector3(0f, 0.9f, 0f);
-            Vector3 line2Pos = body.Position + Vector3.UnitY * height + new Vector3(0f, 0.75f, 0f);
-            Vector3 line3Pos = body.Position + Vector3.UnitY * height + new Vector3(0f, 0.60f, 0f);
+            Vector3 headPos = body.Position + Vector3.UnitY * height + new Vector3(0f, 0.5f, 0f);
+            Vector3 line2Pos = body.Position + Vector3.UnitY * height + new Vector3(0f, 0.35f, 0f);
+            Vector3 line3Pos = body.Position + Vector3.UnitY * height + new Vector3(0f, 0.20f, 0f);
 
             // 转视图空间
             Vector3 vector = Vector3.Transform(headPos, camera.ViewMatrix);
@@ -213,12 +213,11 @@ namespace Game
                 Vector3 textPos = vector3 + right * -halfTotalPx;
                 fontBatch.QueueText(line3, textPos, right, down, color * 0.85f, TextAnchor.Left | TextAnchor.Bottom);
 
-                // 进度条：紧跟文字右侧 gapPx 像素处；垂直居中于文字
+                // 进度条：紧跟文字右侧 gapPx 像素处；垂直居中于文字再额外上移 1.5 像素
                 //   textPos 是文字左下角，文字顶部 = textPos + up * textHeightPx
-                //   进度条顶部 Y = 文字顶部 Y - (文字高 - 进度条高) / 2
-                //              = textPos.Y + textHeightPx - (textHeightPx - barHeight) / 2
-                //   即从 textPos 沿 up 方向(负 down)偏移 (textHeightPx - barHeight) / 2
-                float vAlignOffsetPx = (textHeightPx - barHeight) * 0.5f;
+                //   基准：进度条顶部 = 文字顶部 - (文字高 - 进度条高) / 2 (垂直居中)
+                //   微调：再沿 up 方向偏移 1.5 像素(进度条相对文字再上移一点)
+                float vAlignOffsetPx = (textHeightPx - barHeight) * 0.5f + 1.5f;
                 Vector3 barOrigin = textPos + right * (textWidthPx + gapPx) + down * -vAlignOffsetPx;
                 DrawProgressBar(modelsRenderer, barOrigin, right, down, progress, color);
             }
