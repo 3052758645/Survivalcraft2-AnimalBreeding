@@ -60,6 +60,13 @@ namespace Game
         /// <summary>虚弱期剩余秒数(现实秒)。<=0 表示非虚弱。交配/分娩后设为 WeaknessSeconds。</summary>
         public float WeaknessRemainingSeconds { get; set; } = -1f;
 
+        /// <summary>
+        /// 已喂食状态剩余秒数(现实秒)。<=0 表示未喂食。
+        /// 玩家喂食 FeedItem 指定物品后设为 FedDurationSeconds，期间(配合季节)可发情交配。
+        /// 仅当物种 RequireFeeding=true 时此项才有意义。
+        /// </summary>
+        public float FedRemainingSeconds { get; set; } = -1f;
+
         // ==================== 运行时(不序列化) ====================
 
         /// <summary>是否处于发情期(由 SubsystemBreeding 每帧设置：在繁殖季节且不在虚弱期)。</summary>
@@ -73,6 +80,10 @@ namespace Game
         /// <summary>是否处于虚弱期。</summary>
         [JsonIgnore]
         public bool IsWeak => WeaknessRemainingSeconds > 0f;
+
+        /// <summary>是否已喂食(喂食发情条件满足)。仅 RequireFeeding=true 的物种会检查此项。</summary>
+        [JsonIgnore]
+        public bool IsFed => FedRemainingSeconds > 0f;
 
         /// <summary>原版模板 BoxSize 缓存(第一次应用体型时保存，用于按成长度缩放)。</summary>
         [JsonIgnore]
@@ -109,10 +120,10 @@ namespace Game
             return Gender == BreedingGender.Male ? "♂公" : "♀母";
         }
 
-        /// <summary>繁殖状态简述(渲染显示用)。怀孕优先显示，其次虚弱，最后发情。</summary>
-        public string GetBreedingStatus()
+        /// <summary>繁殖状态简述(渲染显示用)。怀孕优先显示，其次虚弱，最后发情/喂食。</summary>
+        public string GetBreedingStatus(SpeciesConfig species = null)
         {
-            // 母狼怀孕优先显示(即使同时处于虚弱期)
+            // 母体怀孕优先显示(即使同时处于虚弱期)
             if (Gender == BreedingGender.Female && PregnancyRemainingSeconds > 0f)
             {
                 return $"怀孕中({PregnancyRemainingSeconds:F0}秒)";
@@ -128,6 +139,11 @@ namespace Game
                     return $"发情中(相处{MatingProximitySeconds:F0}秒)";
                 }
                 return "发情中";
+            }
+            // 条件性繁衍：在季节内但未喂食 → 提示需喂食
+            if (species != null && species.RequireFeeding && IsAdult && !IsFed)
+            {
+                return "需喂食";
             }
             if (IsAdult) return "未在季";
             return "成长中";

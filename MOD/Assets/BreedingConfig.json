@@ -57,17 +57,24 @@
       "_EstrusChaseRangeMultiplier": "发情期仇恨范围倍率(乘到 ChaseRange factor 上)。",
 
       "CubMaleProbability": 0.5,
-      "_CubMaleProbability": "幼崽/自然生成个体的公狼概率(0~1)。0=全母，1=全公，0.5=各半。"
+      "_CubMaleProbability": "幼崽/自然生成个体的公狼概率(0~1)。0=全母，1=全公，0.5=各半。",
+
+      "RequireFeeding": true,
+      "_RequireFeeding": "条件性繁衍。true=繁殖季节内还需玩家喂食 FeedItem 物品后才发情。",
+      "FeedItem": "RawMeatBlock",
+      "_FeedItem": "喂食物品(方块类名)。狼吃肉类，扔生肉(RawMeatBlock)给它吃后进入发情。留空=接受任何它原版会吃的食物。",
+      "FedDurationSeconds": 600.0,
+      "_FedDurationSeconds": "已喂食状态持续秒数(现实秒)。喂食后此秒数内可发情，到期需再次喂食。"
     },
 
-    "Horse_Black":   { "_说明": "黑马。温顺草食动物，春季发情，公马会为争夺母马打斗。", "BreedingSeasons": [ "Spring" ], "CubDurationDays": 5, "GestationSeconds": 60.0, "MatingRequiredProximitySeconds": 12.0, "WeaknessSeconds": 90.0, "RivalChaseTime": 30.0, "MateRadius": 2.5, "SeekRadius": 24.0, "BirthSpawnOffset": 1.5, "CubAttackFactor": 0.2, "AdultAttackFactor": 0.5, "MaleAttackBonus": 1.2, "CubBoxScale": 0.5, "AdultMaleBoxScale": 1.1, "AdultFemaleBoxScale": 1.0, "EstrusChaseRangeMultiplier": 1.0, "CubMaleProbability": 0.5 },
-    "Horse_Bay":     { "_说明": "栗色马。温顺草食动物，春季发情，公马会为争夺母马打斗。", "BreedingSeasons": [ "Spring" ], "CubDurationDays": 5, "GestationSeconds": 60.0, "MatingRequiredProximitySeconds": 12.0, "WeaknessSeconds": 90.0, "RivalChaseTime": 30.0, "MateRadius": 2.5, "SeekRadius": 24.0, "BirthSpawnOffset": 1.5, "CubAttackFactor": 0.2, "AdultAttackFactor": 0.5, "MaleAttackBonus": 1.2, "CubBoxScale": 0.5, "AdultMaleBoxScale": 1.1, "AdultFemaleBoxScale": 1.0, "EstrusChaseRangeMultiplier": 1.0, "CubMaleProbability": 0.5 },
-    "Horse_Chestnut":{ "_说明": "红栗色马。温顺草食动物，春季发情，公马会为争夺母马打斗。", "BreedingSeasons": [ "Spring" ], "CubDurationDays": 5, "GestationSeconds": 60.0, "MatingRequiredProximitySeconds": 12.0, "WeaknessSeconds": 90.0, "RivalChaseTime": 30.0, "MateRadius": 2.5, "SeekRadius": 24.0, "BirthSpawnOffset": 1.5, "CubAttackFactor": 0.2, "AdultAttackFactor": 0.5, "MaleAttackBonus": 1.2, "CubBoxScale": 0.5, "AdultMaleBoxScale": 1.1, "AdultFemaleBoxScale": 1.0, "EstrusChaseRangeMultiplier": 1.0, "CubMaleProbability": 0.5 },
-    "Horse_Palomino":{ "_说明": "金色马(热带)。温顺草食动物，春季发情，公马会为争夺母马打斗。", "BreedingSeasons": [ "Spring" ], "CubDurationDays": 5, "GestationSeconds": 60.0, "MatingRequiredProximitySeconds": 12.0, "WeaknessSeconds": 90.0, "RivalChaseTime": 30.0, "MateRadius": 2.5, "SeekRadius": 24.0, "BirthSpawnOffset": 1.5, "CubAttackFactor": 0.2, "AdultAttackFactor": 0.5, "MaleAttackBonus": 1.2, "CubBoxScale": 0.5, "AdultMaleBoxScale": 1.1, "AdultFemaleBoxScale": 1.0, "EstrusChaseRangeMultiplier": 1.0, "CubMaleProbability": 0.5 },
-    "Horse_White":   { "_说明": "白马(寒带)。温顺草食动物，春季发情，公马会为争夺母马打斗。", "BreedingSeasons": [ "Spring" ], "CubDurationDays": 5, "GestationSeconds": 60.0, "MatingRequiredProximitySeconds": 12.0, "WeaknessSeconds": 90.0, "RivalChaseTime": 30.0, "MateRadius": 2.5, "SeekRadius": 24.0, "BirthSpawnOffset": 1.5, "CubAttackFactor": 0.2, "AdultAttackFactor": 0.5, "MaleAttackBonus": 1.2, "CubBoxScale": 0.5, "AdultMaleBoxScale": 1.1, "AdultFemaleBoxScale": 1.0, "EstrusChaseRangeMultiplier": 1.0, "CubMaleProbability": 0.5 },
+    "Horse_Black":   { "_说明": "黑马。温顺草食动物，春季发情，公马会为争夺母马打斗。喂高草发情。", "BreedingSeasons": [ "Spring" ], "CubDurationDays": 5, "GestationSeconds": 60.0, "MatingRequiredProximitySeconds": 12.0, "WeaknessSeconds": 90.0, "RivalChaseTime": 30.0, "MateRadius": 2.5, "SeekRadius": 24.0, "BirthSpawnOffset": 1.5, "CubAttackFactor": 0.2, "AdultAttackFactor": 0.5, "MaleAttackBonus": 1.2, "CubBoxScale": 0.5, "AdultMaleBoxScale": 1.1, "AdultFemaleBoxScale": 1.0, "EstrusChaseRangeMultiplier": 1.0, "CubMaleProbability": 0.5, "RequireFeeding": true, "FeedItem": "TallGrassBlock", "FedDurationSeconds": 600.0 },
+    "Horse_Bay":     { "_说明": "栗色马。温顺草食动物，春季发情，公马会为争夺母马打斗。喂高草发情。", "BreedingSeasons": [ "Spring" ], "CubDurationDays": 5, "GestationSeconds": 60.0, "MatingRequiredProximitySeconds": 12.0, "WeaknessSeconds": 90.0, "RivalChaseTime": 30.0, "MateRadius": 2.5, "SeekRadius": 24.0, "BirthSpawnOffset": 1.5, "CubAttackFactor": 0.2, "AdultAttackFactor": 0.5, "MaleAttackBonus": 1.2, "CubBoxScale": 0.5, "AdultMaleBoxScale": 1.1, "AdultFemaleBoxScale": 1.0, "EstrusChaseRangeMultiplier": 1.0, "CubMaleProbability": 0.5, "RequireFeeding": true, "FeedItem": "TallGrassBlock", "FedDurationSeconds": 600.0 },
+    "Horse_Chestnut":{ "_说明": "红栗色马。温顺草食动物，春季发情，公马会为争夺母马打斗。喂高草发情。", "BreedingSeasons": [ "Spring" ], "CubDurationDays": 5, "GestationSeconds": 60.0, "MatingRequiredProximitySeconds": 12.0, "WeaknessSeconds": 90.0, "RivalChaseTime": 30.0, "MateRadius": 2.5, "SeekRadius": 24.0, "BirthSpawnOffset": 1.5, "CubAttackFactor": 0.2, "AdultAttackFactor": 0.5, "MaleAttackBonus": 1.2, "CubBoxScale": 0.5, "AdultMaleBoxScale": 1.1, "AdultFemaleBoxScale": 1.0, "EstrusChaseRangeMultiplier": 1.0, "CubMaleProbability": 0.5, "RequireFeeding": true, "FeedItem": "TallGrassBlock", "FedDurationSeconds": 600.0 },
+    "Horse_Palomino":{ "_说明": "金色马(热带)。温顺草食动物，春季发情，公马会为争夺母马打斗。喂高草发情。", "BreedingSeasons": [ "Spring" ], "CubDurationDays": 5, "GestationSeconds": 60.0, "MatingRequiredProximitySeconds": 12.0, "WeaknessSeconds": 90.0, "RivalChaseTime": 30.0, "MateRadius": 2.5, "SeekRadius": 24.0, "BirthSpawnOffset": 1.5, "CubAttackFactor": 0.2, "AdultAttackFactor": 0.5, "MaleAttackBonus": 1.2, "CubBoxScale": 0.5, "AdultMaleBoxScale": 1.1, "AdultFemaleBoxScale": 1.0, "EstrusChaseRangeMultiplier": 1.0, "CubMaleProbability": 0.5, "RequireFeeding": true, "FeedItem": "TallGrassBlock", "FedDurationSeconds": 600.0 },
+    "Horse_White":   { "_说明": "白马(寒带)。温顺草食动物，春季发情，公马会为争夺母马打斗。喂高草发情。", "BreedingSeasons": [ "Spring" ], "CubDurationDays": 5, "GestationSeconds": 60.0, "MatingRequiredProximitySeconds": 12.0, "WeaknessSeconds": 90.0, "RivalChaseTime": 30.0, "MateRadius": 2.5, "SeekRadius": 24.0, "BirthSpawnOffset": 1.5, "CubAttackFactor": 0.2, "AdultAttackFactor": 0.5, "MaleAttackBonus": 1.2, "CubBoxScale": 0.5, "AdultMaleBoxScale": 1.1, "AdultFemaleBoxScale": 1.0, "EstrusChaseRangeMultiplier": 1.0, "CubMaleProbability": 0.5, "RequireFeeding": true, "FeedItem": "TallGrassBlock", "FedDurationSeconds": 600.0 },
 
     "Cow": {
-      "_说明": "母牛。与 Bull(公牛) 通过 Aliases 互通交配。CubTemplates 按权重随机生 Cow 或 Bull。",
+      "_说明": "母牛。与 Bull(公牛) 通过 Aliases 互通交配。CubTemplates 按权重随机生 Cow 或 Bull。喂高草发情。",
       "BreedingSeasons": [ "Spring", "Summer" ],
       "CubDurationDays": 4,
       "GestationSeconds": 90.0,
@@ -88,10 +95,13 @@
       "BlockInteractDuringBreeding": true,
       "BlockInteractDuringCub": true,
       "Aliases": [ "Bull" ],
-      "CubTemplates": { "Cow": 1, "Bull": 1 }
+      "CubTemplates": { "Cow": 1, "Bull": 1 },
+      "RequireFeeding": true,
+      "FeedItem": "TallGrassBlock",
+      "FedDurationSeconds": 600.0
     },
     "Bull": {
-      "_说明": "公牛。与 Cow(母牛) 通过 Aliases 互通交配。公牛不怀孕，分娩由母牛负责。",
+      "_说明": "公牛。与 Cow(母牛) 通过 Aliases 互通交配。公牛不怀孕，分娩由母牛负责。喂高草发情。",
       "BreedingSeasons": [ "Spring", "Summer" ],
       "CubDurationDays": 4,
       "GestationSeconds": 90.0,
@@ -111,11 +121,14 @@
       "CubMaleProbability": 1.0,
       "BlockInteractDuringBreeding": true,
       "BlockInteractDuringCub": true,
-      "Aliases": [ "Cow" ]
+      "Aliases": [ "Cow" ],
+      "RequireFeeding": true,
+      "FeedItem": "TallGrassBlock",
+      "FedDurationSeconds": 600.0
     },
 
     "Donkey": {
-      "_说明": "驴。可骑可鞍，繁殖期/幼崽期禁止上鞍骑乘。",
+      "_说明": "驴。可骑可鞍，繁殖期/幼崽期禁止上鞍骑乘。喂高草发情。",
       "BreedingSeasons": [ "Spring" ],
       "CubDurationDays": 4,
       "GestationSeconds": 70.0,
@@ -135,10 +148,13 @@
       "CubMaleProbability": 0.5,
       "BlockInteractDuringBreeding": true,
       "BlockInteractDuringCub": true,
-      "ConsumeSaddleOnBlocked": false
+      "ConsumeSaddleOnBlocked": false,
+      "RequireFeeding": true,
+      "FeedItem": "TallGrassBlock",
+      "FedDurationSeconds": 600.0
     },
     "Camel": {
-      "_说明": "骆驼。可骑可鞍，繁殖期/幼崽期禁止上鞍骑乘。",
+      "_说明": "骆驼。可骑可鞍，繁殖期/幼崽期禁止上鞍骑乘。喂高草发情。",
       "BreedingSeasons": [ "Summer" ],
       "CubDurationDays": 5,
       "GestationSeconds": 100.0,
@@ -158,10 +174,13 @@
       "CubMaleProbability": 0.5,
       "BlockInteractDuringBreeding": true,
       "BlockInteractDuringCub": true,
-      "ConsumeSaddleOnBlocked": false
+      "ConsumeSaddleOnBlocked": false,
+      "RequireFeeding": true,
+      "FeedItem": "TallGrassBlock",
+      "FedDurationSeconds": 600.0
     },
     "Reindeer": {
-      "_说明": "驯鹿。可骑可鞍，繁殖期/幼崽期禁止上鞍骑乘。寒带生物，冬季发情。",
+      "_说明": "驯鹿。可骑可鞍，繁殖期/幼崽期禁止上鞍骑乘。寒带生物，冬季发情。喂高草发情。",
       "BreedingSeasons": [ "Winter" ],
       "CubDurationDays": 4,
       "GestationSeconds": 80.0,
@@ -181,10 +200,13 @@
       "CubMaleProbability": 0.5,
       "BlockInteractDuringBreeding": true,
       "BlockInteractDuringCub": true,
-      "ConsumeSaddleOnBlocked": false
+      "ConsumeSaddleOnBlocked": false,
+      "RequireFeeding": true,
+      "FeedItem": "TallGrassBlock",
+      "FedDurationSeconds": 600.0
     },
     "Ostrich": {
-      "_说明": "鸵鸟。可骑可鞍，繁殖期/幼崽期禁止上鞍骑乘。热带生物，春季发情。",
+      "_说明": "鸵鸟。可骑可鞍，繁殖期/幼崽期禁止上鞍骑乘。热带生物，春季发情。喂南瓜发情。",
       "BreedingSeasons": [ "Spring" ],
       "CubDurationDays": 3,
       "GestationSeconds": 60.0,
@@ -204,11 +226,14 @@
       "CubMaleProbability": 0.5,
       "BlockInteractDuringBreeding": true,
       "BlockInteractDuringCub": true,
-      "ConsumeSaddleOnBlocked": false
+      "ConsumeSaddleOnBlocked": false,
+      "RequireFeeding": true,
+      "FeedItem": "PumpkinBlock",
+      "FedDurationSeconds": 600.0
     },
 
     "Alpaca": {
-      "_说明": "羊驼。草食温顺，春秋两季发情。不可骑不可鞍，BlockInteract* 对它无实际效果但无害。",
+      "_说明": "羊驼。草食温顺，春秋两季发情。不可骑不可鞍，BlockInteract* 对它无实际效果但无害。喂高草发情。",
       "BreedingSeasons": [ "Spring", "Autumn" ],
       "CubDurationDays": 3,
       "GestationSeconds": 70.0,
@@ -225,10 +250,13 @@
       "AdultMaleBoxScale": 1.05,
       "AdultFemaleBoxScale": 1.0,
       "EstrusChaseRangeMultiplier": 1.0,
-      "CubMaleProbability": 0.5
+      "CubMaleProbability": 0.5,
+      "RequireFeeding": true,
+      "FeedItem": "TallGrassBlock",
+      "FedDurationSeconds": 600.0
     },
     "Gnu": {
-      "_说明": "角马。草食群居，秋季发情。不可骑不可鞍。",
+      "_说明": "角马。草食群居，秋季发情。不可骑不可鞍。喂高草发情。",
       "BreedingSeasons": [ "Autumn" ],
       "CubDurationDays": 3,
       "GestationSeconds": 70.0,
@@ -245,10 +273,13 @@
       "AdultMaleBoxScale": 1.1,
       "AdultFemaleBoxScale": 1.0,
       "EstrusChaseRangeMultiplier": 1.2,
-      "CubMaleProbability": 0.5
+      "CubMaleProbability": 0.5,
+      "RequireFeeding": true,
+      "FeedItem": "TallGrassBlock",
+      "FedDurationSeconds": 600.0
     },
     "Bison": {
-      "_说明": "野牛。草食群居，秋季发情。不可骑不可鞍，攻击性中等。",
+      "_说明": "野牛。草食群居，秋季发情。不可骑不可鞍，攻击性中等。喂高草发情。",
       "BreedingSeasons": [ "Autumn" ],
       "CubDurationDays": 4,
       "GestationSeconds": 90.0,
@@ -265,7 +296,10 @@
       "AdultMaleBoxScale": 1.15,
       "AdultFemaleBoxScale": 1.0,
       "EstrusChaseRangeMultiplier": 1.2,
-      "CubMaleProbability": 0.5
+      "CubMaleProbability": 0.5,
+      "RequireFeeding": true,
+      "FeedItem": "TallGrassBlock",
+      "FedDurationSeconds": 600.0
     }
   }
 }

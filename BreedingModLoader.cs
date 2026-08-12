@@ -31,8 +31,9 @@ namespace Game
             ModsManager.RegisterHook("OnMinerHit", this);
             ModsManager.RegisterHook("OnModelRendererDrawExtra", this);
             ModsManager.RegisterHook("ScoreMount", this);
+            ModsManager.RegisterHook("OnEatPickable", this);
 
-            Log.Information("[BreedingMod] 动物繁殖系统模组初始化(含 OnModelRendererDrawExtra 渲染钩子)");
+            Log.Information("[BreedingMod] 动物繁殖系统模组初始化(含 OnModelRendererDrawExtra 渲染钩子 + OnEatPickable 喂食钩子)");
         }
 
         /// <summary>当 Project 加载完成时执行。繁殖系统在此缓存子系统引用 + 加载配置。</summary>
@@ -88,6 +89,17 @@ namespace Game
         public override void ScoreMount(ComponentRider componentRider, ComponentMount componentMount, out float? score)
         {
             SubsystemBreeding.OnScoreMount(componentRider, componentMount, out score);
+        }
+
+        // ==================== 喂食发情 ====================
+
+        /// <summary>
+        /// 生物吃掉落物时触发。委托给 SubsystemBreeding 处理"喂食发情"逻辑。
+        /// 此钩子在生物吃完物品(Count 已扣减)后触发，用于标记该个体为"已喂食"。
+        /// </summary>
+        public override void OnEatPickable(ComponentEatPickableBehavior eatPickableBehavior, Pickable eatPickable, out bool dealed)
+        {
+            SubsystemBreeding.OnEatPickable(eatPickableBehavior, eatPickable, out dealed);
         }
 
         // ==================== 浮动文字渲染(参考原版 SurvivalCraftModLoader.OnModelRendererDrawExtra) ====================
@@ -172,7 +184,7 @@ namespace Game
             Vector3 vector2 = Vector3.Transform(line2Pos, camera.ViewMatrix);
             if (vector2.Z < 0f)
             {
-                string line2 = state.GetStageDisplayName() + " | " + state.GetBreedingStatus();
+                string line2 = state.GetStageDisplayName() + " | " + state.GetBreedingStatus(species);
                 fontBatch.QueueText(line2, vector2, right, down, color * 0.85f, TextAnchor.HorizontalCenter | TextAnchor.Bottom);
             }
 

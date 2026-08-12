@@ -394,12 +394,25 @@ namespace Game
                 }
             }
 
-            // 2. 发情期判定(成年 + 在季节 + 不在虚弱期)
+            // 1b. 喂食状态倒计时(条件性繁衍用)
+            if (state.FedRemainingSeconds > 0f)
+            {
+                state.FedRemainingSeconds -= dt;
+                if (state.FedRemainingSeconds < 0f)
+                {
+                    state.FedRemainingSeconds = -1f;
+                    Log.Information($"[Breeding] 喂食状态过期: id={entity.Id}, template={state.TemplateName}, gender={state.GetGenderDisplayName()}");
+                }
+            }
+
+            // 2. 发情期判定(成年 + 在季节 + 不在虚弱期 + 喂食条件满足)
+            // 条件性繁衍: RequireFeeding=true 时还要求 IsFed(已喂食状态未过期)
             // 幼崽不发情，避免幼崽与成年公狼冲突
             Season currentSeason = s_seasons.Season;
             state.IsInEstrus = state.IsAdult
                 && species.ParsedSeasons.Contains(currentSeason)
-                && !state.IsWeak;
+                && !state.IsWeak
+                && (!species.RequireFeeding || state.IsFed);
 
             // 3. 成长阶段推进
             UpdateGrowth(entity, state, species);
@@ -859,8 +872,65 @@ namespace Game
             if (IsInteractBlocked(state, species))
             {
                 score = -1f; // 返回负分阻止骑乘
-                Log.Information($"[Breeding] 阻止骑乘: mount={state.TemplateName}#{mountEntity.Id}, stage={state.GetStageDisplayName()}, status={state.GetBreedingStatus()}");
+                Log.Information($"[Breeding] 阻止骑乘: mount={state.TemplateName}#{mountEntity.Id}, stage={state.GetStageDisplayName()}, status={state.GetBreedingStatus(species)}");
             }
+        }
+
+        // ==================== 喂食发情(OnEatPickable hook) ====================
+
+        /// <summary>
+        /// 生物吃掉落物时触发(由 BreedingModLoader.OnEatPickable 调用)。
+        /// 此钩子在生物吃完物品(Count 已扣减)后触发，无法阻止吃，但可据此标记"已喂食"。
+        /// 逻辑：
+        /// 1. 仅处理被繁殖系统追踪 + RequireFeeding=true 的物种。
+        /// 2. 若 FeedItem 为空 = 接受任何食物；否则匹配方块索引(+可选数据)。
+        /// 3. 匹配成功 → 设 FedRemainingSeconds = FedDurationSeconds，使该个体可发情。
+        /// 注: dealed 始终返回 false，不影响其他模组的喂食钩子。
+        /// </summary>
+        public static void OnEatPickable(ComponentEatPickableBehavior eatPickableBehavior, Pickable eatPickable, out bool dealed)
+        {
+            dealed = false;
+            if (!s_initialized) return;
+            BreedingConfig cfg = BreedingConfig.Current;
+            if (cfg?.Enabled != true) return;
+            if (eatPickableBehavior?.Entity == null || eatPickable == null) return;
+
+            Entity entity = eatPickableBehavior.Entity;
+            if (!s_states.TryGetValue(entity, out BreedingState state)) return;
+
+            SpeciesConfig species = cfg.GetSpecies(state.TemplateName);
+            if (species == null || !species.RequireFeeding) return;
+
+            // 匹配喂食物品
+            if (!IsFeedItemMatch(species, eatPickable)) return;
+
+            // 喂食成功：设置已喂食状态
+            state.FedRemainingSeconds = species.FedDurationSeconds;
+            Log.Information($"[Breeding] 喂食成功: id={entity.Id}, template={state.TemplateName}, gender={state.GetGenderDisplayName()}, feedItem={species.FeedItem ?? "(任意食物)"}, fedSec={species.FedDurationSeconds}");
+        }
+
+        /// <summary>
+        /// 判断被吃掉的物品是否匹配物种配置的 FeedItem。
+        /// · ParsedFeedBlockIndex == null → FeedItem 为空，接受任何食物。
+        /// · ParsedFeedBlockIndex < 0 → 解析失败，不匹配任何物品。
+        /// · ParsedFeedBlockIndex >= 0 → 比较方块索引；若 ParsedFeedBlockData 非 null 还要比较数据。
+        /// </summary>
+        static bool IsFeedItemMatch(SpeciesConfig species, Pickable eatPickable)
+        {
+            if (!species.ParsedFeedBlockIndex.HasValue) return true; // FeedItem 为空 = 接受任何食物
+            if (species.ParsedFeedBlockIndex.Value < 0) return false; // 解析失败
+
+            int value = eatPickable.Value;
+            int blockId = Terrain.ExtractContents(value);
+            if (blockId != species.ParsedFeedBlockIndex.Value) return false;
+
+            // 若配置了数据约束，还要匹配数据
+            if (species.ParsedFeedBlockData.HasValue)
+            {
+                int data = Terrain.ExtractData(value);
+                if (data != species.ParsedFeedBlockData.Value) return false;
+            }
+            return true;
         }
 
         /// <summary>

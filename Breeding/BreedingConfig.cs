@@ -278,10 +278,44 @@ namespace Game
         /// </summary>
         public Dictionary<string, float> CubTemplates { get; set; } = new();
 
+        // ==================== 条件性繁衍(喂食发情) ====================
+
+        /// <summary>
+        /// 是否启用条件性繁衍。true 时，生物在繁殖季节内还必须被玩家喂食 FeedItem 指定的物品后才会发情。
+        /// 默认 false(到季节自动发情)。建议对有养殖价值的物种开启。
+        /// 注意: FeedItem 必须是该生物原版会吃的食物(匹配其 FoodFactors)，否则生物不会去吃，喂食钩子不会触发。
+        /// </summary>
+        public bool RequireFeeding { get; set; } = false;
+
+        /// <summary>
+        /// 喂食发情所需的物品(方块类名)。支持 "类名" 或 "类名:数据" 格式。
+        /// 例: "RawMeatBlock"(生肉，狼吃) / "TallGrassBlock"(高草，牛马吃) / "PumpkinBlock"(南瓜，鸵鸟吃)。
+        /// 留空或 null = 接受该生物原版会吃的任何食物(任何触发 OnEatPickable 的事件都算喂食)。
+        /// 物品被生物吃掉后，该个体进入"已喂食"状态，持续 FedDurationSeconds 秒，期间可发情交配。
+        /// </summary>
+        public string FeedItem { get; set; }
+
+        /// <summary>
+        /// "已喂食"状态持续秒数(现实秒)。喂食后此秒数内可发情，到期后需再次喂食。
+        /// 默认 600 秒(10 分钟)。设为 0 时自动回退为 600。
+        /// </summary>
+        public float FedDurationSeconds { get; set; } = 600.0f;
+
         // ==================== 运行时(不序列化) ====================
 
         [JsonIgnore]
         public HashSet<Season> ParsedSeasons { get; private set; } = new();
+
+        /// <summary>
+        /// 已解析的喂食物品方块索引。null = FeedItem 为空(接受任何食物)；>=0 = 指定方块索引；-1 = 解析失败。
+        /// 由 Normalize() 在配置加载时解析。
+        /// </summary>
+        [JsonIgnore]
+        public int? ParsedFeedBlockIndex { get; private set; }
+
+        /// <summary>已解析的喂食物品方块数据约束。null = 不约束数据；>=0 = 必须匹配此数据值。</summary>
+        [JsonIgnore]
+        public int? ParsedFeedBlockData { get; private set; }
 
         /// <summary>
         /// 解析后的别名集合(含自身)，用于交配匹配。
@@ -332,6 +366,32 @@ namespace Game
                 if (string.IsNullOrEmpty(kv.Key) || kv.Value <= 0f) keysToRemove.Add(kv.Key);
             }
             foreach (var k in keysToRemove) CubTemplates.Remove(k);
+
+            // 条件性繁衍参数校验
+            if (FedDurationSeconds <= 0f) FedDurationSeconds = 600f;
+            FeedItem = string.IsNullOrEmpty(FeedItem) ? null : FeedItem.Trim();
+            ParsedFeedBlockIndex = null;
+            ParsedFeedBlockData = null;
+            if (FeedItem != null)
+            {
+                // 支持 "类名" 或 "类名:数据" 格式
+                string[] parts = FeedItem.Split(':');
+                string blockName = parts[0];
+                int blockIdx = BlocksManager.GetBlockIndex(blockName, false);
+                if (blockIdx < 0)
+                {
+                    Log.Warning($"[Breeding] FeedItem '{FeedItem}' 无法解析为方块类名，该物种喂食发情将无法匹配任何物品: {blockName}");
+                    ParsedFeedBlockIndex = -1;
+                }
+                else
+                {
+                    ParsedFeedBlockIndex = blockIdx;
+                    if (parts.Length >= 2 && int.TryParse(parts[1], out int data))
+                    {
+                        ParsedFeedBlockData = data;
+                    }
+                }
+            }
         }
 
         /// <summary>由 BreedingConfig.Normalize 阶段调用，把当前物种名加入 MatingSet。</summary>
