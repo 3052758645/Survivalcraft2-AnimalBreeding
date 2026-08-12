@@ -17,12 +17,6 @@
       "NotInSeason": "Off-season",
       "Growing": "Growing"
     },
-    "Growth": "Growth {0}%",
-    "Settings": {
-      "PageName": "Display",
-      "PageTitle": "Animal Breeding Display Settings",
-      "FloatingTextName": "Show Floating Text",
-      "FloatingTextDesc": "When enabled, shows gender, status and growth progress above creatures"
-    }
+    "Growth": "Growth {0}%"
   }
 }

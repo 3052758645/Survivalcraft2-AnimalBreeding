@@ -17,12 +17,6 @@
       "NotInSeason": "În afara sezonului",
       "Growing": "Crește"
     },
-    "Growth": "Creștere {0}%",
-    "Settings": {
-      "PageName": "Afișare",
-      "PageTitle": "Setări de afișare pentru reproducerea animalelor",
-      "FloatingTextName": "Afișează textul plutitor",
-      "FloatingTextDesc": "Când este activat, afișează genul, starea și progresul creșterii deasupra creaturilor"
-    }
+    "Growth": "Creștere {0}%"
   }
 }

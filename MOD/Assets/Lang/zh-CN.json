@@ -17,12 +17,6 @@
       "NotInSeason": "未在季",
       "Growing": "成长中"
     },
-    "Growth": "成长 {0}%",
-    "Settings": {
-      "PageName": "显示设置",
-      "PageTitle": "动物繁殖系统显示设置",
-      "FloatingTextName": "显示头顶悬浮文字",
-      "FloatingTextDesc": "开启后显示生物头顶的性别、状态和成长进度等信息"
-    }
+    "Growth": "成长 {0}%"
   }
 }

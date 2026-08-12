@@ -17,12 +17,6 @@
       "NotInSeason": "Ngoài mùa",
       "Growing": "Đang lớn"
     },
-    "Growth": "Tăng trưởng {0}%",
-    "Settings": {
-      "PageName": "Hiển thị",
-      "PageTitle": "Cài đặt hiển thị hệ thống nhân giống động vật",
-      "FloatingTextName": "Hiển thị văn bản nổi",
-      "FloatingTextDesc": "Khi bật, hiển thị giới tính, trạng thái và tiến trình tăng trưởng phía trên sinh vật"
-    }
+    "Growth": "Tăng trưởng {0}%"
   }
 }

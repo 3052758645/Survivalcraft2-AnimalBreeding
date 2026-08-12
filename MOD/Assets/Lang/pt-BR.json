@@ -17,12 +17,6 @@
       "NotInSeason": "Fora de temporada",
       "Growing": "Crescendo"
     },
-    "Growth": "Crescimento {0}%",
-    "Settings": {
-      "PageName": "Exibição",
-      "PageTitle": "Ajustes de exibição de criação animal",
-      "FloatingTextName": "Mostrar texto flutuante",
-      "FloatingTextDesc": "Quando ativado, mostra o gênero, o status e o progresso de crescimento acima das criaturas"
-    }
+    "Growth": "Crescimento {0}%"
   }
 }
