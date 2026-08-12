@@ -84,6 +84,7 @@ namespace Game
             Dictionary<Entity, BreedingState> cachedFromSpawn = s_states.Count > 0
                 ? new Dictionary<Entity, BreedingState>(s_states)
                 : null;
+            Log.Information($"[Breeding] Initialize: 保存 OnReadSpawnData 缓存，count={cachedFromSpawn?.Count ?? 0}");
 
             // 清空旧世界残留(静态字段跨世界保留，不清空会导致旧 Entity 引用泄漏)
             s_states.Clear();
@@ -123,9 +124,11 @@ namespace Game
                     if (cachedFromSpawn.TryGetValue(e, out BreedingState s))
                     {
                         s_states[e] = s;
+                        Log.Information($"[Breeding] Initialize 恢复: 实体 #{e.Id} ({e.ValuesDictionary.DatabaseObject?.Name})，性别={s.Gender}");
                     }
                 }
             }
+            Log.Information($"[Breeding] Initialize 恢复完成: s_states.Count={s_states.Count}");
 
             // 备选加载：如果 ProjectXmlLoad 钩子未被调用(旧版 DLL 可能不支持)，
             // s_xmlCachedStates 为空。此时直接从 Project.xml 文件读取 BreedingModStates 节点。
@@ -660,9 +663,16 @@ namespace Game
             // 即使配置未加载(s_initialized=false，引擎在 Initialize 之前调用本钩子)，
             // 也要先反序列化并缓存状态，避免 Initialize 的 backfill 用随机值覆盖存档。
             BreedingState state = BreedingState.Deserialize(spawnEntityData.Data);
-            if (state == null) return; // Data 为空 = 存档时无状态，留给 OnEntityAdd/backfill 创建默认状态
+            if (state == null)
+            {
+                Log.Warning($"[Breeding] OnReadSpawnData: 实体 #{entity.Id} 数据为空或反序列化失败");
+                return;
+            }
 
-            Log.Information($"[Breeding] OnReadSpawnData: 实体 #{entity.Id} ({entity.ValuesDictionary.DatabaseObject?.Name ?? "unknown"})，Data长度={spawnEntityData.Data?.Length ?? 0}，性别={state.Gender}");
+            bool wasInStates = s_states.ContainsKey(entity);
+            BreedingState oldState = wasInStates ? s_states[entity] : null;
+            
+            Log.Information($"[Breeding] OnReadSpawnData: 实体 #{entity.Id} ({entity.ValuesDictionary.DatabaseObject?.Name ?? "unknown"})，Data长度={spawnEntityData.Data?.Length ?? 0}，存档性别={state.Gender}，已存在={wasInStates}，旧性别={oldState?.Gender}");
 
             s_states[entity] = state;
 
