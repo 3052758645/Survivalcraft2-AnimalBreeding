@@ -660,8 +660,6 @@ namespace Game
                 return;
             }
 
-            // 即使配置未加载(s_initialized=false，引擎在 Initialize 之前调用本钩子)，
-            // 也要先反序列化并缓存状态，避免 Initialize 的 backfill 用随机值覆盖存档。
             BreedingState state = BreedingState.Deserialize(spawnEntityData.Data);
             if (state == null)
             {
@@ -672,11 +670,13 @@ namespace Game
             bool wasInStates = s_states.ContainsKey(entity);
             BreedingState oldState = wasInStates ? s_states[entity] : null;
             
-            Log.Information($"[Breeding] OnReadSpawnData: 实体 #{entity.Id} ({entity.ValuesDictionary.DatabaseObject?.Name ?? "unknown"})，Data长度={spawnEntityData.Data?.Length ?? 0}，存档性别={state.Gender}，已存在={wasInStates}，旧性别={oldState?.Gender}");
+            // 判断数据来源：如果 EntityId 匹配，说明来自 SpawnChunk；否则来自 Project.xml
+            string source = spawnEntityData.EntityId == entity.Id ? "SpawnChunk" : "ProjectXml";
+            
+            Log.Information($"[Breeding] OnReadSpawnData: 实体 #{entity.Id} ({entity.ValuesDictionary.DatabaseObject?.Name})，来源={source}，存档性别={state.Gender}，已存在={wasInStates}，旧性别={oldState?.Gender}");
 
             s_states[entity] = state;
 
-            // 配置未就绪时无法做模板名校验和体型应用，留给 Initialize backfill 补做
             if (!s_initialized) return;
 
             BreedingConfig cfg = BreedingConfig.Current;
@@ -685,11 +685,9 @@ namespace Game
             string templateName = entity.ValuesDictionary.DatabaseObject?.Name;
             if (string.IsNullOrEmpty(templateName)) return;
 
-            // 归一化模板名(带鞍马存档读取时也要归一化)
             string normalizedTemplate = NormalizeTemplateName(templateName);
             if (cfg.GetSpecies(normalizedTemplate) == null) return;
 
-            // 状态模板名与归一化后的实体模板名比较(支持带鞍马存档恢复)
             if (!string.Equals(state.TemplateName, normalizedTemplate, StringComparison.Ordinal))
             {
                 Log.Warning($"[Breeding] 状态模板名不匹配: state={state.TemplateName}, entity={normalizedTemplate}，丢弃旧状态");
