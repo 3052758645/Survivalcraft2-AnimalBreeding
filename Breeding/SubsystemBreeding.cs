@@ -171,14 +171,15 @@ namespace Game
             // 补注册在 Initialize 之前已 AddEntity 的实体
             // (Project.LoadEntities → OnEntityAdd 在 OnProjectLoaded/Initialize 之前触发，
             //  此时 s_initialized=false 导致 OnEntityAdd 跳过。这里遍历补建)
-            // 三种情况：
+            // 四种情况：
             //   1. s_states 已有缓存(OnReadSpawnData 在 Initialize 前缓存)：校验模板名 + 补应用体型
             //   2. s_xmlCachedStates 有缓存(活着的生物，Project.xml 持久化)：反序列化 + 校验 + 应用体型
-            //   3. 无任何存档(新生物/首次生成)：按自然生成成体初始化
+            //   3. s_entitySpawnDataCache 有缓存(Despawn 的存档实体)：反序列化 + 校验 + 应用体型
+            //   4. 无任何存档(新生物/首次生成)：按自然生成成体初始化
             if (cfg?.Enabled == true && project.Entities != null)
             {
                 int backfilled = 0;
-                int hit1 = 0, hit2 = 0, hit3 = 0; // 诊断：各情况命中次数
+                int hit1 = 0, hit2 = 0, hit3 = 0, hit4 = 0; // 诊断：各情况命中次数
                 foreach (Entity existing in project.Entities)
                 {
                     ComponentCreature creature = existing.FindComponent<ComponentCreature>();
@@ -223,7 +224,27 @@ namespace Game
                         Log.Warning($"[Breeding] 情况2失败: entityId={existing.Id}, template={normTn}, xmlStateNull={xmlState == null}");
                     }
 
-                    // 情况3：无任何存档(新生物/首次生成) → 按自然生成成体初始化
+                    // 情况3：从 s_entitySpawnDataCache 恢复(Despawn 的存档实体，通过反射缓存)
+                    if (s_entitySpawnDataCache.TryGetValue(existing.Id, out SpawnEntityData spawnData))
+                    {
+                        BreedingState spawnState = BreedingState.Deserialize(spawnData.Data);
+                        if (spawnState != null
+                            && !string.IsNullOrEmpty(spawnState.TemplateName)
+                            && string.Equals(spawnState.TemplateName, normTn, StringComparison.Ordinal))
+                        {
+                            s_states[existing] = spawnState;
+                            CacheAndApplyBoxSize(existing, spawnState, cfg);
+                            backfilled++;
+                            hit3++;
+                            Log.Information($"[Breeding] backfill 情况3: 从 s_entitySpawnDataCache 恢复实体 #{existing.Id} ({normTn})，性别={spawnState.Gender}");
+                            continue;
+                        }
+                        // 反序列化失败或模板名不匹配 → 清理缓存并落入情况4
+                        Log.Warning($"[Breeding] 情况3失败: entityId={existing.Id}, template={normTn}, spawnStateNull={spawnState == null}");
+                        s_entitySpawnDataCache.Remove(existing.Id);
+                    }
+
+                    // 情况4：无任何存档(新生物/首次生成) → 按自然生成成体初始化
                     BreedingState st = new()
                     {
                         TemplateName = normTn,
@@ -236,9 +257,9 @@ namespace Game
                     s_states[existing] = st;
                     CacheAndApplyBoxSize(existing, st, cfg);
                     backfilled++;
-                    hit3++;
+                    hit4++;
                 }
-                Log.Information($"[Breeding] backfill 完成: 总数={backfilled}, 情况1(存档)={hit1}, 情况2(XML)={hit2}, 情况3(随机)={hit3}, xmlCached={s_xmlCachedStates.Count}");
+                Log.Information($"[Breeding] backfill 完成: 总数={backfilled}, 情况1(OnReadSpawnData)={hit1}, 情况2(XML)={hit2}, 情况3(SpawnDataCache)={hit3}, 情况4(随机)={hit4}, xmlCached={s_xmlCachedStates.Count}, spawnCached={s_entitySpawnDataCache.Count}");
             }
 
             // backfill 完成，XML 缓存不再需要
