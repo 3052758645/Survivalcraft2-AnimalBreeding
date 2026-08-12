@@ -192,7 +192,7 @@ namespace Game
                             Rotation = body.Rotation,
                             Velocity = body.Velocity,
                             State = state,
-                            QueuedAtSeconds = s_time.GameTime
+                            QueuedAtSeconds = (float)s_time.GameTime
                         });
                         Log.Information($"[Breeding] 暂存禁止交互原马待恢复: template={state.TemplateName}#{entity.Id}, stage={state.GetStageDisplayName()}, pos={body.Position}");
                         s_states.Remove(entity);
@@ -263,7 +263,7 @@ namespace Game
             if (body == null) return false;
             Vector3 pos = body.Position;
 
-            float now = s_time.GameTime;
+            float now = (float)s_time.GameTime;
             for (int i = s_pendingReverts.Count - 1; i >= 0; i--)
             {
                 PendingSaddleRevert r = s_pendingReverts[i];
