@@ -1,0 +1,28 @@
+{
+  "BreedingMod": {
+    "Gender": {
+      "Male": "♂Macho",
+      "Female": "♀Hembra"
+    },
+    "Stage": {
+      "Cub": "Cría",
+      "Adult": "Adulto"
+    },
+    "Status": {
+      "Pregnant": "Preñada({0}s)",
+      "Weak": "Débil({0}s)",
+      "EstrusMating": "Celo(Monta {0}s)",
+      "Estrus": "Celo",
+      "NeedFeeding": "Necesita comida",
+      "NotInSeason": "Fuera de temporada",
+      "Growing": "Creciendo"
+    },
+    "Growth": "Crecimiento {0}%",
+    "Settings": {
+      "PageName": "Pantalla",
+      "PageTitle": "Ajustes de pantalla de cría animal",
+      "FloatingTextName": "Mostrar texto flotante",
+      "FloatingTextDesc": "Cuando está activado, muestra el género, el estado y el progreso de crecimiento sobre las criaturas"
+    }
+  }
+}

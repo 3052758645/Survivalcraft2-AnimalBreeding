@@ -1,0 +1,28 @@
+{
+  "BreedingMod": {
+    "Gender": {
+      "Male": "♂Đực",
+      "Female": "♀Cái"
+    },
+    "Stage": {
+      "Cub": "Con non",
+      "Adult": "Trưởng thành"
+    },
+    "Status": {
+      "Pregnant": "Đang thai({0}giây)",
+      "Weak": "Yếu({0}giây)",
+      "EstrusMating": "Động dục(Giao phối {0}giây)",
+      "Estrus": "Động dục",
+      "NeedFeeding": "Cần thức ăn",
+      "NotInSeason": "Ngoài mùa",
+      "Growing": "Đang lớn"
+    },
+    "Growth": "Tăng trưởng {0}%",
+    "Settings": {
+      "PageName": "Hiển thị",
+      "PageTitle": "Cài đặt hiển thị hệ thống nhân giống động vật",
+      "FloatingTextName": "Hiển thị văn bản nổi",
+      "FloatingTextDesc": "Khi bật, hiển thị giới tính, trạng thái và tiến trình tăng trưởng phía trên sinh vật"
+    }
+  }
+}

@@ -20,6 +20,12 @@ namespace Game
     /// </summary>
     public class BreedingModLoader : ModLoader
     {
+        /// <summary>本模组包名(与 modinfo.json 的 PackageName 一致)，用于读写 ModSettingsManager。</summary>
+        const string PackageName = "Survivalcraft.AnimalBreeding";
+
+        /// <summary>悬浮文字开关设置项的 Id 链(不含包名，与 modsettings.json 中一致)。</summary>
+        static readonly string[] FloatingTextIdPath = { "BreedingDisplaySettings", "FloatingTextEnabled" };
+
         public override void __ModInitialize()
         {
             // 动物繁殖系统相关钩子：实体生命周期、存档读写、每帧更新、攻击力修正、模型绘制扩展
@@ -41,6 +47,29 @@ namespace Game
         public override void OnProjectLoaded(Project project)
         {
             SubsystemBreeding.Initialize(project);
+
+            // 读取模组设置：悬浮文字开关(默认开启)。设置项未注册时 TryGet 返回 false，保持默认 true。
+            if (ModSettingsManager.TryGet<bool>(out bool enabled, PackageName, FloatingTextIdPath[0], FloatingTextIdPath[1]))
+            {
+                SubsystemBreeding.FloatingTextEnabled = enabled;
+            }
+            else
+            {
+                SubsystemBreeding.FloatingTextEnabled = true;
+            }
+        }
+
+        /// <summary>
+        /// 模组设置项值变更通知(由 ModSettingsManager.Set 精准分发到本 loader)。
+        /// idPath 为完整 path 去掉首段包名，对应 modsettings.json 中的 Id 链。
+        /// </summary>
+        public override void OnModSettingChanged(string[] idPath, object value)
+        {
+            if (idPath == null || idPath.Length != 2 || value is not bool b) return;
+            if (idPath[0] == FloatingTextIdPath[0] && idPath[1] == FloatingTextIdPath[1])
+            {
+                SubsystemBreeding.FloatingTextEnabled = b;
+            }
         }
 
         // ==================== 实体生命周期 ====================
@@ -120,6 +149,8 @@ namespace Game
         {
             skip = false;
             if (!SubsystemBreeding.Initialized) return;
+            // 模组设置关闭了悬浮文字 → 整体跳过渲染
+            if (!SubsystemBreeding.FloatingTextEnabled) return;
 
             SubsystemModelsRenderer modelsRenderer = SubsystemBreeding.ModelsRenderer;
             if (modelsRenderer == null) return;
@@ -213,11 +244,11 @@ namespace Game
                 Vector3 textPos = vector3 + right * -halfTotalPx;
                 fontBatch.QueueText(line3, textPos, right, down, color * 0.85f, TextAnchor.Left | TextAnchor.Bottom);
 
-                // 进度条：紧跟文字右侧 gapPx 像素处；垂直居中于文字再额外上移 1.5 像素
+                // 进度条：紧跟文字右侧 gapPx 像素处；垂直居中于文字再额外上移 3.0 像素
                 //   textPos 是文字左下角，文字顶部 = textPos + up * textHeightPx
                 //   基准：进度条顶部 = 文字顶部 - (文字高 - 进度条高) / 2 (垂直居中)
-                //   微调：再沿 up 方向偏移 1.5 像素(进度条相对文字再上移一点)
-                float vAlignOffsetPx = (textHeightPx - barHeight) * 0.5f + 1.5f;
+                //   微调：再沿 up 方向偏移 3.0 像素(进度条相对文字再上移，补偿字体基线偏移)
+                float vAlignOffsetPx = (textHeightPx - barHeight) * 0.5f + 3.0f;
                 Vector3 barOrigin = textPos + right * (textWidthPx + gapPx) + down * -vAlignOffsetPx;
                 DrawProgressBar(modelsRenderer, barOrigin, right, down, progress, color);
             }

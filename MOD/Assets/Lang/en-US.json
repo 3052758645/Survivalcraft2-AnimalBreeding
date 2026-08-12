@@ -1,0 +1,28 @@
+{
+  "BreedingMod": {
+    "Gender": {
+      "Male": "♂Male",
+      "Female": "♀Female"
+    },
+    "Stage": {
+      "Cub": "Cub",
+      "Adult": "Adult"
+    },
+    "Status": {
+      "Pregnant": "Pregnant({0}s)",
+      "Weak": "Weak({0}s)",
+      "EstrusMating": "Estrus(Mating {0}s)",
+      "Estrus": "Estrus",
+      "NeedFeeding": "Need feeding",
+      "NotInSeason": "Off-season",
+      "Growing": "Growing"
+    },
+    "Growth": "Growth {0}%",
+    "Settings": {
+      "PageName": "Display",
+      "PageTitle": "Animal Breeding Display Settings",
+      "FloatingTextName": "Show Floating Text",
+      "FloatingTextDesc": "When enabled, shows gender, status and growth progress above creatures"
+    }
+  }
+}

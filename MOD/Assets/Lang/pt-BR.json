@@ -1,0 +1,28 @@
+{
+  "BreedingMod": {
+    "Gender": {
+      "Male": "♂Macho",
+      "Female": "♀Fêmea"
+    },
+    "Stage": {
+      "Cub": "Filhote",
+      "Adult": "Adulto"
+    },
+    "Status": {
+      "Pregnant": "Grávida({0}s)",
+      "Weak": "Fraco({0}s)",
+      "EstrusMating": "Cio(Cobertura {0}s)",
+      "Estrus": "Cio",
+      "NeedFeeding": "Precisa comida",
+      "NotInSeason": "Fora de temporada",
+      "Growing": "Crescendo"
+    },
+    "Growth": "Crescimento {0}%",
+    "Settings": {
+      "PageName": "Exibição",
+      "PageTitle": "Ajustes de exibição de criação animal",
+      "FloatingTextName": "Mostrar texto flutuante",
+      "FloatingTextDesc": "Quando ativado, mostra o gênero, o status e o progresso de crescimento acima das criaturas"
+    }
+  }
+}

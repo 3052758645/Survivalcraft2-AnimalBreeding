@@ -55,11 +55,25 @@ namespace Game
         static long s_debugFrameCounter;
 
         /// <summary>
+        /// 是否显示头顶悬浮文字(由模组设置 modsettings.json 的 FloatingTextEnabled 控制，默认开启)。
+        /// 在 OnProjectLoaded 时从 ModSettingsManager 读取初值，OnModSettingChanged 时热更新。
+        /// </summary>
+        public static bool FloatingTextEnabled = true;
+
+        /// <summary>
         /// 由 BreedingModLoader.OnProjectLoaded 调用，缓存子系统引用并加载配置。
         /// 注意：ModLoader 是单例，静态字段跨世界保留，必须在此清空旧世界的残留状态。
         /// </summary>
         public static void Initialize(Project project)
         {
+            // 保存 OnReadSpawnData 已缓存的本世界存档状态。
+            // OnReadSpawnData 在 Initialize 之前被引擎调用(SubsystemCreatureSpawn.LoadSpawnsData 阶段)，
+            // 此时已把反序列化的存档状态(性别/出生日/成长阶段等)缓存到 s_states。
+            // 下面 Clear 会清空旧世界残留，所以先保存本世界的存档状态，Clear 后只恢复属于当前项目实体的状态。
+            Dictionary<Entity, BreedingState> cachedFromSpawn = s_states.Count > 0
+                ? new Dictionary<Entity, BreedingState>(s_states)
+                : null;
+
             // 清空旧世界残留(静态字段跨世界保留，不清空会导致旧 Entity 引用泄漏)
             s_states.Clear();
             s_pendingReverts.Clear();
@@ -85,15 +99,30 @@ namespace Game
             }
             s_initialized = true;
 
+            // 恢复 OnReadSpawnData 缓存的本世界存档状态(仅限当前项目的实体，过滤旧世界残留)
+            if (cachedFromSpawn != null && project.Entities != null)
+            {
+                foreach (Entity e in project.Entities)
+                {
+                    if (cachedFromSpawn.TryGetValue(e, out BreedingState s))
+                    {
+                        s_states[e] = s;
+                    }
+                }
+            }
+
             // 补注册在 Initialize 之前已 AddEntity 的实体
             // (Project.LoadEntities → OnEntityAdd 在 OnProjectLoaded/Initialize 之前触发，
             //  此时 s_initialized=false 导致 OnEntityAdd 跳过。这里遍历补建)
+            // 注意：OnReadSpawnData 在 Initialize 之前已被引擎调用，此时虽 s_initialized=false，
+            // 但会先把反序列化的存档状态缓存到 s_states。这里要区分两种情况：
+            //   1. s_states 已有缓存(有存档)：校验模板名 + 补应用体型(OnReadSpawnData 跳过了体型应用)
+            //   2. s_states 无缓存(无存档，如自然生成的新生物)：按自然生成成体初始化
             if (cfg?.Enabled == true && project.Entities != null)
             {
                 int backfilled = 0;
                 foreach (Entity existing in project.Entities)
                 {
-                    if (s_states.ContainsKey(existing)) continue;
                     ComponentCreature creature = existing.FindComponent<ComponentCreature>();
                     if (creature == null) continue;
                     string tn = existing.ValuesDictionary.DatabaseObject?.Name;
@@ -101,8 +130,24 @@ namespace Game
                     string normTn = NormalizeTemplateName(tn);
                     SpeciesConfig sp = cfg.GetSpecies(normTn);
                     if (sp == null) continue;
-                    // 这些实体没有 OnReadSpawnData 恢复(非 SpawnEntity 路径)，
-                    // 按自然生成成体初始化
+
+                    // 情况1：OnReadSpawnData 已缓存存档状态 → 校验模板名 + 补应用体型
+                    if (s_states.TryGetValue(existing, out BreedingState cached))
+                    {
+                        if (!string.Equals(cached.TemplateName, normTn, StringComparison.Ordinal))
+                        {
+                            Log.Warning($"[Breeding] 状态模板名不匹配: state={cached.TemplateName}, entity={normTn}，丢弃旧状态");
+                            s_states.Remove(existing);
+                        }
+                        else
+                        {
+                            CacheAndApplyBoxSize(existing, cached, cfg); // 补缓存 OriginalBoxSize + 应用体型
+                            backfilled++;
+                            continue;
+                        }
+                    }
+
+                    // 情况2：无存档状态(或模板名不匹配已移除) → 按自然生成成体初始化
                     BreedingState st = new()
                     {
                         TemplateName = normTn,
@@ -356,10 +401,21 @@ namespace Game
 
         public static void OnReadSpawnData(Entity entity, SpawnEntityData spawnEntityData)
         {
-            if (!s_initialized || entity == null || spawnEntityData == null)
+            if (entity == null || spawnEntityData == null)
             {
                 return;
             }
+
+            // 即使配置未加载(s_initialized=false，引擎在 Initialize 之前调用本钩子)，
+            // 也要先反序列化并缓存状态，避免 Initialize 的 backfill 用随机值覆盖存档。
+            BreedingState state = BreedingState.Deserialize(spawnEntityData.Data);
+            if (state == null) return; // Data 为空 = 存档时无状态，留给 OnEntityAdd/backfill 创建默认状态
+
+            s_states[entity] = state;
+
+            // 配置未就绪时无法做模板名校验和体型应用，留给 Initialize backfill 补做
+            if (!s_initialized) return;
+
             BreedingConfig cfg = BreedingConfig.Current;
             if (cfg?.Enabled != true) return;
 
@@ -370,16 +426,13 @@ namespace Game
             string normalizedTemplate = NormalizeTemplateName(templateName);
             if (cfg.GetSpecies(normalizedTemplate) == null) return;
 
-            BreedingState state = BreedingState.Deserialize(spawnEntityData.Data);
-            if (state == null) return; // Data 为空 = 存档时无状态，留给 OnEntityAdd 创建默认状态
-
             // 状态模板名与归一化后的实体模板名比较(支持带鞍马存档恢复)
             if (!string.Equals(state.TemplateName, normalizedTemplate, StringComparison.Ordinal))
             {
                 Log.Warning($"[Breeding] 状态模板名不匹配: state={state.TemplateName}, entity={normalizedTemplate}，丢弃旧状态");
+                s_states.Remove(entity);
                 return;
             }
-            s_states[entity] = state;
             CacheAndApplyBoxSize(entity, state, cfg);
         }
 

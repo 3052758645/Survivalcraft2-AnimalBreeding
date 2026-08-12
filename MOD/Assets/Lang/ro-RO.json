@@ -1,0 +1,28 @@
+{
+  "BreedingMod": {
+    "Gender": {
+      "Male": "♂Mascul",
+      "Female": "♀Femelă"
+    },
+    "Stage": {
+      "Cub": "Pui",
+      "Adult": "Adult"
+    },
+    "Status": {
+      "Pregnant": "Gravidă({0}s)",
+      "Weak": "Slăbit({0}s)",
+      "EstrusMating": "Călduri(Montă {0}s)",
+      "Estrus": "Călduri",
+      "NeedFeeding": "Necesită hrană",
+      "NotInSeason": "În afara sezonului",
+      "Growing": "Crește"
+    },
+    "Growth": "Creștere {0}%",
+    "Settings": {
+      "PageName": "Afișare",
+      "PageTitle": "Setări de afișare pentru reproducerea animalelor",
+      "FloatingTextName": "Afișează textul plutitor",
+      "FloatingTextDesc": "Când este activat, afișează genul, starea și progresul creșterii deasupra creaturilor"
+    }
+  }
+}
