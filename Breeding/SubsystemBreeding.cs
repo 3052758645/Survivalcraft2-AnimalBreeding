@@ -90,6 +90,7 @@ namespace Game
             s_states.Clear();
             s_pendingReverts.Clear();
             s_initialized = false;
+            Log.Information($"[Breeding] Initialize: 清空旧世界残留，s_states.Count={s_states.Count}");
 
             s_project = project;
             s_creatureSpawn = project.FindSubsystem<SubsystemCreatureSpawn>(true);
