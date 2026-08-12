@@ -198,20 +198,28 @@ namespace Game
                 int percent = (int)Math.Round(progress * 100f);
                 string line3 = string.Format(LanguageControl.Get("BreedingMod", "Growth"), percent.ToString());
 
-                // 测量文字宽度(像素)，用于定位进度条起点 + 让"文字+间隙+进度条"整体水平居中
+                // 测量文字尺寸(视图空间单位)，用于定位进度条起点 + 整体水平居中 + 垂直对齐
                 Vector2 textSize = font.MeasureText(line3, new Vector2(right.Length(), down.Length()), Vector2.Zero);
-                float textWidthPx = textSize.X / right.Length(); // 还原成"像素单位"(与 barWidth 同尺度)
+                float textWidthPx = textSize.X / right.Length();  // 文字宽(像素，与 barWidth 同尺度)
+                float textHeightPx = textSize.Y / down.Length();  // 文字高(像素，与 barHeight 同尺度)
                 const float barWidth = 100f;     // 进度条总宽(像素)
+                const float barHeight = 9f;      // 进度条高度(像素)
                 const float gapPx = 6f;          // 文字与进度条之间的间隙(像素)
                 float totalWidthPx = textWidthPx + gapPx + barWidth;
                 float halfTotalPx = totalWidthPx * 0.5f;
 
                 // 文字左对齐：起点 = vector3 左移 halfTotalPx(让整体居中)，垂直底部对齐
+                // 注: TextAnchor.Bottom 时 textPos 是文字左下角，文字向上延伸绘制
                 Vector3 textPos = vector3 + right * -halfTotalPx;
                 fontBatch.QueueText(line3, textPos, right, down, color * 0.85f, TextAnchor.Left | TextAnchor.Bottom);
 
-                // 进度条：紧跟文字右侧 gapPx 像素处，barOrigin 即进度条左上角
-                Vector3 barOrigin = textPos + right * (textWidthPx + gapPx);
+                // 进度条：紧跟文字右侧 gapPx 像素处；垂直居中于文字
+                //   textPos 是文字左下角，文字顶部 = textPos + up * textHeightPx
+                //   进度条顶部 Y = 文字顶部 Y - (文字高 - 进度条高) / 2
+                //              = textPos.Y + textHeightPx - (textHeightPx - barHeight) / 2
+                //   即从 textPos 沿 up 方向(负 down)偏移 (textHeightPx - barHeight) / 2
+                float vAlignOffsetPx = (textHeightPx - barHeight) * 0.5f;
+                Vector3 barOrigin = textPos + right * (textWidthPx + gapPx) + down * -vAlignOffsetPx;
                 DrawProgressBar(modelsRenderer, barOrigin, right, down, progress, color);
             }
         }
