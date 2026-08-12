@@ -44,8 +44,12 @@ namespace Game
         static SubsystemSeasons s_seasons;
         static SubsystemTimeOfDay s_timeOfDay;
         static SubsystemTime s_time;
+        static SubsystemModelsRenderer s_modelsRenderer;
         static Random s_random = new();
         static bool s_initialized;
+
+        /// <summary>渲染钩子(OnModelDrawExtra)用它获取 FontBatch 入队悬浮文字。</summary>
+        public static SubsystemModelsRenderer ModelsRenderer => s_modelsRenderer;
 
         /// <summary>攻击力修正命中节流计数器(每 200 次命中输出一次)。</summary>
         static long s_debugHitCounter;
@@ -74,7 +78,8 @@ namespace Game
             s_seasons = project.FindSubsystem<SubsystemSeasons>(true);
             s_timeOfDay = project.FindSubsystem<SubsystemTimeOfDay>(true);
             s_time = project.FindSubsystem<SubsystemTime>(true);
-            Log.Information($"[Breeding] 子系统已缓存: creatureSpawn={s_creatureSpawn!=null}, bodies={s_bodies!=null}, seasons={s_seasons!=null}, timeOfDay={s_timeOfDay!=null}, time={s_time!=null}");
+            s_modelsRenderer = project.FindSubsystem<SubsystemModelsRenderer>(true);
+            Log.Information($"[Breeding] 子系统已缓存: creatureSpawn={s_creatureSpawn!=null}, bodies={s_bodies!=null}, seasons={s_seasons!=null}, timeOfDay={s_timeOfDay!=null}, time={s_time!=null}, modelsRenderer={s_modelsRenderer!=null}");
 
             BreedingConfig.Load();
             BreedingConfig cfg = BreedingConfig.Current;

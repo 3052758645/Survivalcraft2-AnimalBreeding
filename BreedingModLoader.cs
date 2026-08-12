@@ -12,9 +12,10 @@ namespace Game
     /// 仅注册繁殖系统所需的钩子，不依赖荒野科技主模组的任何功能。
     /// 所有逻辑委托给 SubsystemBreeding 静态类。
     ///
-    /// 浮动文字渲染：通过 OnModelRendererDrawExtra 钩子(原版画玩家名称的方式)实现。
-    /// SubsystemModelsRenderer.Draw 在画完每只生物模型后会回调本钩子，
-    /// 我们用 modelsRenderer.PrimitivesRenderer.FontBatch(...).QueueText(...) 入队文字(layer 1)，
+    /// 浮动文字渲染：通过 OnModelDrawExtra 钩子(ComponentModel.DrawExtras 回调)实现。
+    /// 该钩子对所有 ComponentModel(蒙皮 + 非蒙皮)都会触发，
+    /// 因此能覆盖原版 .dae 模型与第三方 glTF/PBR 蒙皮模型(如 HC 模组的生物)。
+    /// 用 SubsystemBreeding.ModelsRenderer.PrimitivesRenderer.FontBatch(...).QueueText(...) 入队文字(layer 1)，
     /// 由 SubsystemModelsRenderer 在 DrawOrder=201 时统一 Flush，不需要自己 Flush。
     /// </summary>
     public class BreedingModLoader : ModLoader
@@ -29,11 +30,11 @@ namespace Game
             ModsManager.RegisterHook("OnSaveSpawnData", this);
             ModsManager.RegisterHook("OnFactorsUpdate", this);
             ModsManager.RegisterHook("OnMinerHit", this);
-            ModsManager.RegisterHook("OnModelRendererDrawExtra", this);
+            ModsManager.RegisterHook("OnModelDrawExtra", this);
             ModsManager.RegisterHook("ScoreMount", this);
             ModsManager.RegisterHook("OnEatPickable", this);
 
-            Log.Information("[BreedingMod] 动物繁殖系统模组初始化(含 OnModelRendererDrawExtra 渲染钩子 + OnEatPickable 喂食钩子)");
+            Log.Information("[BreedingMod] 动物繁殖系统模组初始化(含 OnModelDrawExtra 渲染钩子 + OnEatPickable 喂食钩子)");
         }
 
         /// <summary>当 Project 加载完成时执行。繁殖系统在此缓存子系统引用 + 加载配置。</summary>
@@ -102,28 +103,27 @@ namespace Game
             SubsystemBreeding.OnEatPickable(eatPickableBehavior, eatPickable, out dealed);
         }
 
-        // ==================== 浮动文字渲染(参考原版 SurvivalCraftModLoader.OnModelRendererDrawExtra) ====================
+        // ==================== 浮动文字渲染(OnModelDrawExtra 对蒙皮+非蒙皮模型均触发) ====================
 
         /// <summary>
-        /// 每只生物模型绘制完毕后由 SubsystemModelsRenderer.Draw 回调。
+        /// 每个 ComponentModel 绘制完毕后由 ComponentModel.DrawExtras 回调。
         /// 在此为被追踪的繁殖生物入队 3 行浮动文字：
         ///   第1行：性别 + 生物显示名(例如 "♂公 灰狼")
         ///   第2行：成长阶段 + 繁殖状态(例如 "幼崽期 | 成长中" / "成年期 | 怀孕中(0.5天)")
         ///   第3行：成长进度百分比 + 文字进度条(例如 "成长 60% [███░░]")
         ///
-        /// 用 modelsRenderer.PrimitivesRenderer.FontBatch(layer=1) 入队，
+        /// 用 SubsystemBreeding.ModelsRenderer.PrimitivesRenderer.FontBatch(layer=1) 入队，
         /// 由 SubsystemModelsRenderer 在 DrawOrder=201 时统一 Flush(camera.ProjectionMatrix)，无需自己 Flush。
         /// </summary>
-        public override void OnModelRendererDrawExtra(SubsystemModelsRenderer modelsRenderer,
-            SubsystemModelsRenderer.ModelData modelData,
-            Camera camera,
-            float? alphaThreshold)
+        public override void OnModelDrawExtra(ComponentModel componentModel, Camera camera, out bool skip)
         {
+            skip = false;
             if (!SubsystemBreeding.Initialized) return;
 
-            ComponentModel componentModel = modelData?.ComponentModel;
-            if (componentModel == null) return;
-            Entity entity = componentModel.Entity;
+            SubsystemModelsRenderer modelsRenderer = SubsystemBreeding.ModelsRenderer;
+            if (modelsRenderer == null) return;
+
+            Entity entity = componentModel?.Entity;
             if (entity == null) return;
 
             // 只处理被繁殖系统追踪的生物(非繁殖生物/玩家/船等直接跳过)
