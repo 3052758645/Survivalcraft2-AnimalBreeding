@@ -186,12 +186,13 @@ namespace Game
                     {
                         if (!string.Equals(cached.TemplateName, normTn, StringComparison.Ordinal))
                         {
-                            Log.Warning($"[Breeding] 状态模板名不匹配: state={cached.TemplateName}, entity={normTn}，丢弃旧状态");
+                            Log.Warning($"[Breeding] 情况1模板名不匹配: state={cached.TemplateName}, entity={normTn}，丢弃旧状态");
                             s_states.Remove(existing);
                         }
                         else
                         {
                             CacheAndApplyBoxSize(existing, cached, cfg); // 补缓存 OriginalBoxSize + 应用体型
+                            Log.Information($"[Breeding] backfill 情况1: 实体 #{existing.Id} ({normTn})，性别={cached.Gender}");
                             backfilled++;
                             hit1++;
                             continue;
@@ -207,6 +208,7 @@ namespace Game
                         {
                             s_states[existing] = xmlState;
                             CacheAndApplyBoxSize(existing, xmlState, cfg);
+                            Log.Information($"[Breeding] backfill 情况2: 实体 #{existing.Id} ({normTn})，性别={xmlState.Gender}");
                             backfilled++;
                             hit2++;
                             continue;
@@ -659,6 +661,8 @@ namespace Game
             // 也要先反序列化并缓存状态，避免 Initialize 的 backfill 用随机值覆盖存档。
             BreedingState state = BreedingState.Deserialize(spawnEntityData.Data);
             if (state == null) return; // Data 为空 = 存档时无状态，留给 OnEntityAdd/backfill 创建默认状态
+
+            Log.Information($"[Breeding] OnReadSpawnData: 实体 #{entity.Id} ({entity.ValuesDictionary.DatabaseObject?.Name ?? "unknown"})，Data长度={spawnEntityData.Data?.Length ?? 0}，性别={state.Gender}");
 
             s_states[entity] = state;
 
