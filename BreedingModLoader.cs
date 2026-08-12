@@ -107,13 +107,14 @@ namespace Game
 
         /// <summary>
         /// 每个 ComponentModel 绘制完毕后由 ComponentModel.DrawExtras 回调。
-        /// 在此为被追踪的繁殖生物入队 3 行浮动文字：
+        /// 在此为被追踪的繁殖生物入队 3 行浮动文字 + 1 个图形进度条：
         ///   第1行：性别 + 生物显示名(例如 "♂公 灰狼")
         ///   第2行：成长阶段 + 繁殖状态(例如 "幼崽期 | 成长中" / "成年期 | 怀孕中(0.5天)")
-        ///   第3行：成长进度百分比 + ASCII 进度条(例如 "成长 60% [======    ]")
+        ///   第3行：成长进度百分比(例如 "成长 60%")
+        ///   第4行：图形进度条(FlatBatch3D 画矩形，背景灰 + 前景绿按进度填充)
         ///
-        /// 用 SubsystemBreeding.ModelsRenderer.PrimitivesRenderer.FontBatch(layer=1) 入队，
-        /// 由 SubsystemModelsRenderer 在 DrawOrder=201 时统一 Flush(camera.ProjectionMatrix)，无需自己 Flush。
+        /// 文字用 SubsystemBreeding.ModelsRenderer.PrimitivesRenderer.FontBatch(layer=1) 入队，
+        /// 进度条用 FlatBatch(layer=1) 画矩形，均由 SubsystemModelsRenderer 在 DrawOrder=201 时统一 Flush。
         /// </summary>
         public override void OnModelDrawExtra(ComponentModel componentModel, Camera camera, out bool skip)
         {
@@ -188,28 +189,66 @@ namespace Game
                 fontBatch.QueueText(line2, vector2, right, down, color * 0.85f, TextAnchor.HorizontalCenter | TextAnchor.Bottom);
             }
 
-            // ==================== 第3行：成长进度百分比 + ASCII 进度条 ====================
+            // ==================== 第3行：成长进度百分比 ====================
             Vector3 vector3 = Vector3.Transform(line3Pos, camera.ViewMatrix);
             if (vector3.Z < 0f)
             {
                 float progress = state.GetGrowthProgress(currentDay, species.CubDurationDays);
                 int percent = (int)Math.Round(progress * 100f);
-                string line3 = "成长 " + percent.ToString() + "% " + BuildProgressBar(progress);
+                string line3 = "成长 " + percent.ToString() + "%";
                 fontBatch.QueueText(line3, vector3, right, down, color * 0.85f, TextAnchor.HorizontalCenter | TextAnchor.Bottom);
+
+                // ==================== 第4行：图形进度条(FlatBatch3D 画矩形) ====================
+                // 在百分比文字下方画一个真正的矩形进度条(背景灰 + 前景绿按进度填充)，
+                // 不再依赖字符拼进度条，渲染效果稳定。
+                DrawProgressBar(modelsRenderer, vector3, right, down, progress, color);
             }
         }
 
         /// <summary>
-        /// 生成 10 格 ASCII 百分比进度条(每格 10%)。用 = 和空格，纯 ASCII 无字体适配问题。
-        /// 进度 0   → "[          ]"
-        /// 进度 0.6 → "[======    ]"
-        /// 进度 1   → "[==========]"
+        /// 用 FlatBatch3D.QueueQuad 在视图空间绘制矩形进度条。
+        /// 布局(均以 right/down 为视图空间单位向量，与文字行高对齐)：
+        ///   - 条宽 = 12 个文字单位，条高 = 1.4 个文字单位
+        ///   - 条位于基准点 vector3 下方 2 个单位处(避免与百分比文字重叠)
+        ///   - 背景灰半透明矩形 + 前景绿色矩形(宽度 = 总宽 × progress)
+        /// 颜色乘以 baseColor 实现与文字一致的远距离淡出。
         /// </summary>
-        static string BuildProgressBar(float progress)
+        static void DrawProgressBar(SubsystemModelsRenderer modelsRenderer,
+            Vector3 vector3, Vector3 right, Vector3 down,
+            float progress, Color baseColor)
         {
-            const int blocks = 10; // 每格 10%，与百分比数字一一对应
-            int filled = (int)Math.Clamp(Math.Round(progress * blocks), 0, blocks);
-            return "[" + new string('=', filled) + new string(' ', blocks - filled) + "]";
+            FlatBatch3D flatBatch = modelsRenderer.PrimitivesRenderer.FlatBatch(
+                1,
+                DepthStencilState.DepthRead,
+                RasterizerState.CullNoneScissor,
+                BlendState.AlphaBlend);
+
+            const float barWidth = 12f;      // 进度条总宽(文字单位)
+            const float barHeight = 1.4f;    // 进度条高度(文字单位)
+            const float offsetY = 2f;        // 相对百分比文字下移量(避免重叠)
+            float halfW = barWidth * 0.5f;
+
+            // 进度条中心位于 vector3 正下方 offsetY 个单位
+            Vector3 center = vector3 + down * offsetY;
+
+            // 背景矩形(灰半透明)：左上 / 右上 / 左下 / 右下
+            Color bgColor = new Color(40, 40, 40, 180) * baseColor;
+            Vector3 bgTL = center + right * -halfW + down * 0f;
+            Vector3 bgTR = center + right *  halfW + down * 0f;
+            Vector3 bgBL = center + right * -halfW + down * barHeight;
+            Vector3 bgBR = center + right *  halfW + down * barHeight;
+            flatBatch.QueueQuad(bgTL, bgTR, bgBL, bgBR, bgColor);
+
+            // 前景矩形(绿色，宽度 = 总宽 × progress)
+            if (progress <= 0f) return;
+            float filledW = barWidth * Math.Clamp(progress, 0f, 1f);
+            // 前景左对齐：从背景左边缘开始向右填充
+            Color fgColor = new Color(80, 200, 80, 220) * baseColor;
+            Vector3 fgTL = center + right * -halfW + down * 0f;
+            Vector3 fgTR = center + right * (-halfW + filledW) + down * 0f;
+            Vector3 fgBL = center + right * -halfW + down * barHeight;
+            Vector3 fgBR = center + right * (-halfW + filledW) + down * barHeight;
+            flatBatch.QueueQuad(fgTL, fgTR, fgBL, fgBR, fgColor);
         }
     }
 }
