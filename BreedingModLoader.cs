@@ -240,7 +240,7 @@ namespace Game
 
             // 1. 背景填充矩形(灰半透明，固定大小)
             Color bgColor = new Color(40, 40, 40, 180) * baseColor;
-            flatBatch.QueueQuad(topLeft, topRgt, botLeft, botRgt, bgColor);
+            QueueRect(flatBatch, topLeft, topRgt, botLeft, botRgt, bgColor);
 
             // 2. 前景填充矩形(绿色，宽度 = 总宽 × progress，左对齐)
             float filledW = barWidth * Math.Clamp(progress, 0f, 1f);
@@ -251,7 +251,7 @@ namespace Game
                 Vector3 fgTR = topLeft + right * filledW;
                 Vector3 fgBL = botLeft;
                 Vector3 fgBR = botLeft + right * filledW;
-                flatBatch.QueueQuad(fgTL, fgTR, fgBL, fgBR, fgColor);
+                QueueRect(flatBatch, fgTL, fgTR, fgBL, fgBR, fgColor);
             }
 
             // 3. 白色边框(4 条线，固定大小，不随 progress 变化)
@@ -261,6 +261,26 @@ namespace Game
             flatBatch.QueueLine(botLeft, botRgt, borderColor);   // 下边
             flatBatch.QueueLine(topLeft, botLeft, borderColor);  // 左边
             flatBatch.QueueLine(topRgt, botRgt, borderColor);    // 右边
+        }
+
+        /// <summary>
+        /// 用两个三角形拼成实心矩形(修复引擎 QueueQuad 单色版的三角形重叠 bug)。
+        ///
+        /// 引擎 FlatBatch3D.QueueQuad(p1,p2,p3,p4,color) 单色版的三角形拆分为：
+        ///   △1 = (p1,p2,p3)，△2 = (p3,p4,p1)
+        /// 注释标 p1=左上 p2=右上 p3=左下 p4=右下，则 △2 的对角边是 p1-p3(即左边)，
+        /// 导致两三角形沿左边重叠、尖角分别朝右上和右下 → 视觉上像"共用底边、尖在不同处"的错位矩形。
+        ///
+        /// 本方法改用正确拆分(对角线 p2-p3，即右上到左下)：
+        ///   △1 = (p1,p2,p3) = (左上,右上,左下)
+        ///   △2 = (p2,p3,p4) = (右上,左下,右下)
+        /// 两三角形沿对角线 p2-p3 拼合，刚好覆盖整个矩形区域，无重叠无缺口。
+        /// </summary>
+        static void QueueRect(FlatBatch3D flatBatch,
+            Vector3 topLeft, Vector3 topRgt, Vector3 botLeft, Vector3 botRgt, Color color)
+        {
+            flatBatch.QueueTriangle(topLeft, topRgt, botLeft, color); // △1: 左上,右上,左下
+            flatBatch.QueueTriangle(topRgt, botLeft, botRgt, color);  // △2: 右上,左下,右下
         }
     }
 }
