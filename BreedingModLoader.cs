@@ -145,11 +145,11 @@ namespace Game
             if (health != null && health.DeathTime.HasValue) return;
 
             // 头顶世界坐标(参考原版 ComponentDisplayHealthAndNameBehavior)
-            // 整体上移 0.9 格避免贴头太近；行距 0.20 格(紧凑版，原 0.25)
+            // 整体上移 0.9 格避免贴头太近；行距 0.15 格(更紧凑，原 0.20)
             float height = body.BoxSize.Y;
             Vector3 headPos = body.Position + Vector3.UnitY * height + new Vector3(0f, 0.9f, 0f);
-            Vector3 line2Pos = body.Position + Vector3.UnitY * height + new Vector3(0f, 0.70f, 0f);
-            Vector3 line3Pos = body.Position + Vector3.UnitY * height + new Vector3(0f, 0.50f, 0f);
+            Vector3 line2Pos = body.Position + Vector3.UnitY * height + new Vector3(0f, 0.75f, 0f);
+            Vector3 line3Pos = body.Position + Vector3.UnitY * height + new Vector3(0f, 0.60f, 0f);
 
             // 转视图空间
             Vector3 vector = Vector3.Transform(headPos, camera.ViewMatrix);
@@ -207,16 +207,14 @@ namespace Game
         }
 
         /// <summary>
-        /// 用 FlatBatch3D.QueueQuad 在视图空间绘制矩形进度条。
+        /// 用 FlatBatch3D 在视图空间绘制带白色边框的矩形进度条。
         /// 单位说明：right/down 向量长度 = 0.005，即 1 单位 = 1 屏幕像素。
-        /// 布局(均以 right/down 为视图空间单位向量，与文字行高对齐)：
-        ///   - 条宽 = 72 像素，条高 = 9 像素(放大 3 倍版，远距离易看清)
-        ///   - 条位于基准点 vector3 下方 2 像素处(紧凑间距，避免与百分比文字重叠)
-        ///   - 背景灰半透明矩形 + 前景绿色矩形(宽度 = 总宽 × progress)
-        ///   - Z 偏置：所有顶点朝相机方向(+Z)偏移 0.01 视图单位，
-        ///     保证进度条在 DepthRead 测试中胜过生物自身模型，避免被头部/身体遮挡(原 bug 修复)。
-        ///     该偏置很小，不会穿透前方墙体(墙更近，深度仍小于偏置后的进度条)。
-        /// 颜色乘以 baseColor 实现与文字一致的远距离淡出。
+        /// 绘制层次(由内到外，所有顶点朝相机方向 +Z 偏置 zBias 避免被自身模型遮挡)：
+        ///   1. 背景填充矩形(灰半透明，固定大小，覆盖整个进度条区域)
+        ///   2. 前景填充矩形(绿色，宽度 = 总宽 × progress，从左对齐填充)
+        ///   3. 白色边框(4 条线，固定大小，不随 progress 变化)
+        /// 关于"两个三角形"：GPU 没有矩形图元，QueueQuad 内部用 2 个三角形拼矩形是标准做法，
+        /// 视觉上就是一个完整矩形(无对角线，因为三角形共享对角边且颜色相同)。
         /// </summary>
         static void DrawProgressBar(SubsystemModelsRenderer modelsRenderer,
             Vector3 vector3, Vector3 right, Vector3 down,
@@ -228,33 +226,41 @@ namespace Game
                 RasterizerState.CullNoneScissor,
                 BlendState.AlphaBlend);
 
-            const float barWidth = 72f;      // 进度条总宽(像素) — 放大 3 倍
-            const float barHeight = 9f;      // 进度条高度(像素) — 放大 3 倍
+            const float barWidth = 100f;     // 进度条总宽(像素) — 加长版
+            const float barHeight = 9f;      // 进度条高度(像素)
             const float offsetY = 2f;        // 相对百分比文字下移量(像素，紧凑)
             const float zBias = 0.01f;       // 朝相机 Z 偏置，避免被自身模型遮挡
             float halfW = barWidth * 0.5f;
 
-            // 进度条中心位于 vector3 正下方 offsetY 像素，再朝相机偏移 zBias
-            Vector3 center = vector3 + down * offsetY + Vector3.UnitZ * zBias;
+            // 进度条左上角(视图空间)：vector3 正下方 offsetY 像素，再朝相机偏移 zBias
+            Vector3 topLeft = vector3 + down * offsetY + right * -halfW + Vector3.UnitZ * zBias;
+            Vector3 topRgt = vector3 + down * offsetY + right *  halfW + Vector3.UnitZ * zBias;
+            Vector3 botLeft = topLeft + down * barHeight;
+            Vector3 botRgt  = topRgt  + down * barHeight;
 
-            // 背景矩形(灰半透明)：左上 / 右上 / 左下 / 右下
+            // 1. 背景填充矩形(灰半透明，固定大小)
             Color bgColor = new Color(40, 40, 40, 180) * baseColor;
-            Vector3 bgTL = center + right * -halfW + down * 0f;
-            Vector3 bgTR = center + right *  halfW + down * 0f;
-            Vector3 bgBL = center + right * -halfW + down * barHeight;
-            Vector3 bgBR = center + right *  halfW + down * barHeight;
-            flatBatch.QueueQuad(bgTL, bgTR, bgBL, bgBR, bgColor);
+            flatBatch.QueueQuad(topLeft, topRgt, botLeft, botRgt, bgColor);
 
-            // 前景矩形(绿色，宽度 = 总宽 × progress)
-            if (progress <= 0f) return;
+            // 2. 前景填充矩形(绿色，宽度 = 总宽 × progress，左对齐)
             float filledW = barWidth * Math.Clamp(progress, 0f, 1f);
-            // 前景左对齐：从背景左边缘开始向右填充
-            Color fgColor = new Color(80, 200, 80, 220) * baseColor;
-            Vector3 fgTL = center + right * -halfW + down * 0f;
-            Vector3 fgTR = center + right * (-halfW + filledW) + down * 0f;
-            Vector3 fgBL = center + right * -halfW + down * barHeight;
-            Vector3 fgBR = center + right * (-halfW + filledW) + down * barHeight;
-            flatBatch.QueueQuad(fgTL, fgTR, fgBL, fgBR, fgColor);
+            if (filledW > 0f)
+            {
+                Color fgColor = new Color(80, 200, 80, 220) * baseColor;
+                Vector3 fgTL = topLeft;
+                Vector3 fgTR = topLeft + right * filledW;
+                Vector3 fgBL = botLeft;
+                Vector3 fgBR = botLeft + right * filledW;
+                flatBatch.QueueQuad(fgTL, fgTR, fgBL, fgBR, fgColor);
+            }
+
+            // 3. 白色边框(4 条线，固定大小，不随 progress 变化)
+            //    边框稍亮但保留淡出，与文字一致
+            Color borderColor = new Color(240, 240, 240, 230) * baseColor;
+            flatBatch.QueueLine(topLeft, topRgt, borderColor);   // 上边
+            flatBatch.QueueLine(botLeft, botRgt, borderColor);   // 下边
+            flatBatch.QueueLine(topLeft, botLeft, borderColor);  // 左边
+            flatBatch.QueueLine(topRgt, botRgt, borderColor);    // 右边
         }
     }
 }
