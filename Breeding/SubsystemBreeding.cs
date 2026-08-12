@@ -278,6 +278,14 @@ namespace Game
                 if (entityId != 0 && !string.IsNullOrEmpty(data))
                 {
                     s_xmlCachedStates[entityId] = data;
+                    // 尝试反序列化以记录性别
+                    try
+                    {
+                        BreedingState st = BreedingState.Deserialize(data);
+                        if (st != null)
+                            Log.Information($"[Breeding] LoadXmlStates: 实体 #{entityId}，存档性别={st.Gender}");
+                    }
+                    catch { }
                     count++;
                 }
             }
@@ -300,7 +308,7 @@ namespace Game
             // 移除旧节点(避免重复，ProjectXmlSave 和 OnProjectXmlSaved 都会调用此方法)
             projectNode.Element("BreedingModStates")?.Remove();
 
-            Log.Information($"[Breeding] SaveXmlStates: s_states.Count={s_states.Count}");
+            Log.Information($"[Breeding] SaveXmlStates: s_states.Count={s_states.Count}，实体ID列表=[{string.Join(",", s_states.Keys.Select(e => e == null ? "null" : e.Id.ToString()))}]");
 
             if (s_states.Count == 0) return;
 
@@ -315,6 +323,7 @@ namespace Game
                 XmlUtils.SetAttributeValue(stateEl, "EntityId", entity.Id);
                 XmlUtils.SetAttributeValue(stateEl, "Data", state.Serialize());
                 statesNode.Add(stateEl);
+                Log.Information($"[Breeding] SaveXmlStates: 实体 #{entity.Id} ({entity.ValuesDictionary.DatabaseObject?.Name})，性别={state.Gender}");
             }
 
             if (statesNode.HasElements)
@@ -354,6 +363,7 @@ namespace Game
             try
             {
                 XElement root = new("BreedingStates");
+                List<Entity> entities = new();
                 int count = 0;
                 foreach (KeyValuePair<Entity, BreedingState> kv in s_states)
                 {
@@ -362,6 +372,7 @@ namespace Game
                     XmlUtils.SetAttributeValue(el, "EntityId", kv.Key.Id);
                     XmlUtils.SetAttributeValue(el, "Data", kv.Value.Serialize());
                     root.Add(el);
+                    entities.Add(kv.Key);
                     count++;
                 }
 
@@ -372,7 +383,7 @@ namespace Game
                     {
                         XmlUtils.SaveXmlToStream(root, stream, null, true);
                     }
-                    Log.Information($"[Breeding] SaveStatesToFile: 保存 {count} 个状态到 BreedingStates.xml");
+                    Log.Information($"[Breeding] SaveStatesToFile: 保存 {count} 个状态到 BreedingStates.xml，实体ID列表=[{string.Join(",", entities.Select(e => e.Id.ToString()))}]");
                 }
             }
             catch (Exception e)
@@ -676,7 +687,7 @@ namespace Game
             // 判断数据来源：如果 EntityId 匹配，说明来自 SpawnChunk；否则来自 Project.xml
             string source = spawnEntityData.EntityId == entity.Id ? "SpawnChunk" : "ProjectXml";
             
-            Log.Information($"[Breeding] OnReadSpawnData: 实体 #{entity.Id} ({entity.ValuesDictionary.DatabaseObject?.Name})，来源={source}，存档性别={state.Gender}，已存在={wasInStates}，旧性别={oldState?.Gender}");
+            Log.Information($"[Breeding] OnReadSpawnData: 实体 #{entity.Id} ({entity.ValuesDictionary.DatabaseObject?.Name})，来源={source}，存档性别={state.Gender}，已存在={wasInStates}，旧性别={oldState?.Gender}，s_initialized={s_initialized}");
 
             s_states[entity] = state;
 
