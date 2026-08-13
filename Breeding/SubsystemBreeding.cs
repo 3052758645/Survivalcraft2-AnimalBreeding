@@ -681,41 +681,38 @@ namespace Game
                 return;
             }
 
-            bool wasInStates = s_states.ContainsKey(entity);
-            BreedingState oldState = wasInStates ? s_states[entity] : null;
-            
             // 判断数据来源：如果 EntityId 匹配，说明来自 SpawnChunk；否则来自 Project.xml
             string source = spawnEntityData.EntityId == entity.Id ? "SpawnChunk" : "ProjectXml";
-            
-            // 只允许在 Initialize 之前（s_initialized=false）更新 s_states，
-            // 避免游戏加载时的重复调用（来自临时实体）覆盖正确的存档状态。
-            if (s_initialized)
-            {
-                Log.Information($"[Breeding] OnReadSpawnData: 实体 #{entity.Id} ({entity.ValuesDictionary.DatabaseObject?.Name})，来源={source}，存档性别={state.Gender}，已忽略(s_initialized=true)");
-                return;
-            }
-
-            Log.Information($"[Breeding] OnReadSpawnData: 实体 #{entity.Id} ({entity.ValuesDictionary.DatabaseObject?.Name})，来源={source}，存档性别={state.Gender}，已存在={wasInStates}，旧性别={oldState?.Gender}，s_initialized={s_initialized}");
-
-            s_states[entity] = state;
-
-            if (!s_initialized) return;
-
-            BreedingConfig cfg = BreedingConfig.Current;
-            if (cfg?.Enabled != true) return;
 
             string templateName = entity.ValuesDictionary.DatabaseObject?.Name;
             if (string.IsNullOrEmpty(templateName)) return;
 
             string normalizedTemplate = NormalizeTemplateName(templateName);
-            if (cfg.GetSpecies(normalizedTemplate) == null) return;
 
+            // 存档状态与实体模板必须一致；不一致说明数据过时(如生物已升级成带鞍模板)，丢弃由 OnEntityAdd 重新初始化
             if (!string.Equals(state.TemplateName, normalizedTemplate, StringComparison.Ordinal))
             {
-                Log.Warning($"[Breeding] 状态模板名不匹配: state={state.TemplateName}, entity={normalizedTemplate}，丢弃旧状态");
-                s_states.Remove(entity);
+                Log.Warning($"[Breeding] OnReadSpawnData: 状态模板名不匹配: state={state.TemplateName}, entity={normalizedTemplate}，丢弃旧状态");
                 return;
             }
+
+            // 无条件恢复存档状态。
+            // SCAPI1.8 中 OnReadSpawnData 只在游戏运行时由 SubsystemSpawn.SpawnEntity 触发
+            // (被 Despawn 的生物重新生成时)，此时 s_initialized 已为 true。
+            // 若因 s_initialized 而忽略存档状态，随后 OnEntityAdd 会按"自然生成"随机分配性别，
+            // 导致生物性别随地图重新打开/Despawn 循环而随机变化。存档状态是权威数据，必须恢复。
+            Log.Information($"[Breeding] OnReadSpawnData: 实体 #{entity.Id} ({entity.ValuesDictionary.DatabaseObject?.Name})，来源={source}，存档性别={state.Gender}，s_initialized={s_initialized}");
+
+            s_states[entity] = state;
+
+            // 仅在游戏运行时立即应用体型；Initialize 之前的调用(旧版 SCAPI 加载路径)由 backfill 情况1统一处理
+            if (!s_initialized) return;
+
+            BreedingConfig cfg = BreedingConfig.Current;
+            if (cfg?.Enabled != true) return;
+
+            if (cfg.GetSpecies(normalizedTemplate) == null) return;
+
             CacheAndApplyBoxSize(entity, state, cfg);
         }
 
