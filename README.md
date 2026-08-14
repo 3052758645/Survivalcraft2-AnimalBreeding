@@ -2,7 +2,7 @@
 
 为 Survivalcraft 2 (2.4.0.0) 加入动物繁殖系统的独立模组。
 
-当前版本支持 **39 个物种** 的繁殖（参数独立配置，详见 [CONFIG.md "四、已支持的物种"](CONFIG.md)）：
+当前版本支持 **39 个物种** 的繁殖（参数独立配置，完整生物清单详见 [SPECIES.md 生物图鉴](SPECIES.md)）：
 
 | 类别 | 物种 | 特点 |
 |------|------|------|
@@ -237,7 +237,7 @@ scale = CubBoxScale + (成年scale - CubBoxScale) × 成长进度
 }
 ```
 
-> 模组开箱支持 39 个物种（14 种需喂食 + 25 种无需喂食），完整默认参数对比详见 [CONFIG.md](CONFIG.md) "四、已支持的物种" 与 [SPECIES.md](SPECIES.md) 生物图鉴。
+> 模组开箱支持 39 个物种（14 种需喂食 + 25 种无需喂食），完整生物清单与参数对比详见 [SPECIES.md](SPECIES.md) 生物图鉴，参数含义详见 [CONFIG.md](CONFIG.md)。
 
 ### 物种参数速览（写在 `Wolf_Gray` 下）
 
