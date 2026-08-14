@@ -422,7 +422,11 @@ namespace Game
             //   2) backfill 情况1(旧数据)抢先于情况2(权威 XML 缓存)，恢复出错误性别。
             s_states.Clear();
             s_pendingReverts.Clear();
-            Log.Information("[Breeding][存档] ClearXmlCache: 完成(已清空 s_states/s_pendingReverts)");
+            // 同时复位 s_initialized：否则下个会话加载阶段(OnProjectLoaded 之前)OnEntityAdd
+            // 会因 s_initialized 残留 true 而抢先按 RollGender 注册状态，虽然会被 backfill 情况2
+            // 覆盖，但违反"加载期 OnEntityAdd 跳过、全部交给 backfill"的设计意图。
+            s_initialized = false;
+            Log.Information("[Breeding][存档] ClearXmlCache: 完成(已清空 s_states/s_pendingReverts，s_initialized 已复位)");
         }
 
         /// <summary>
