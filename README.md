@@ -434,3 +434,4 @@ OnModelRendererDrawExtra → 头顶浮动文字渲染
 - **防止一公多母**：公狼交配后立即设 `IsInEstrus=false` + `WeaknessRemainingSeconds`，同帧内其他母狼的 `FindNearbyEstrusMale` 找不到他（双重保险：`IsWeak` 检查 + `IsInEstrus` 检查）。
 - **仇恨控制**：通过 `ComponentFactors.OtherFactors["ChaseRange"]` 添加 factor。值为 0 且 Multiply 类型 → 仇恨范围归零。
 - **状态持久化**：通过 `SpawnEntityData.Data`（JSON）随实体存档。`OriginalBoxSize`/`OriginalModelScale`/`IsInEstrus`/`IsWeak`/`TargetFemaleId` 标记 `[JsonIgnore]`，加载时重新缓存或每帧重算。
+- **确定性性别分配（防退出重进性别变化）**：性别恢复遵循"缓存优先"（`BreedingModStates`/`SpawnEntityData.Data`/`BreedingStates.xml` 三层缓存），缓存缺失时的兜底不再用 `Random` 随机掷，而是用 **EntityId 的稳定哈希** 计算。SC 中 EntityId 跨 Despawn/Respawn（存于 `SpawnEntityData.EntityId`）与存档重载（存于 `Project.xml Entities/@Id`）保持不变，因此同一只生物无论缓存是否命中、命中哪一层，性别永远一致；统计上仍按 `CubMaleProbability` 分布。
