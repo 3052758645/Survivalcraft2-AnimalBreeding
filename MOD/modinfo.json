@@ -1,8 +1,8 @@
 {
    "Name": "动物繁殖系统",
-   "Version": "0.1.0",
+   "Version": "1.0.0",
    "ApiVersion": "1.9",
-   "Description": "为 Survivalcraft 2 加入完整的动物繁殖系统：季节开关、怀孕成功率三选一检测、成长阶段、攻击力动态调整、近亲与重复配对防护。所有属性以配置文件方式存在，可运行时调整。",
+   "Description": "为 Survivalcraft 2 加入完整的动物繁殖系统：39 种生物按物种独立配置繁殖参数，季节性发情、公体求偶竞争、怀孕分娩、幼崽成长体型变化、攻击力按阶段与性别调整、条件性繁衍(喂食发情)、繁殖期/幼崽期交互拦截、多源配置合并。性别等繁殖状态跨存档稳定持久化，退出重进世界不丢失。",
    "ScVersion": "2.4.0.0",
    "Link": "https://gitee.com/YonRen/Survivalcraft2-AnimalBreeding",
    "Author": "永仁、蚁拳王",
