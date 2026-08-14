@@ -1,80 +1,38 @@
+// 动物繁殖系统运行配置（仅参数，便于游戏解析）。
+// 全部 39 种生物的说明/时间规则/测试要点见仓库 SPECIES.md（生物图鉴）与 CONFIG.md。
+// 时间换算：1 游戏天 = 1200 现实秒(20分钟)；大型动物孕期 2 天、小型 1.5 天；成长期=孕期×3；虚弱=孕期÷2。
 {
-  "_说明": "动物繁殖系统配置。全局只保留总开关 Enabled，其余所有参数都按物种独立配置。详见仓库 CONFIG.md。时间换算：1 游戏天 = 1200 现实秒(20分钟)。孕期 GestationSeconds / 虚弱 WeaknessSeconds 以现实秒配置；幼崽期 CubDurationDays 以游戏天配置。当前时间规则：大型动物孕期 2 天(2400秒)、小型动物 1.5 天(1800秒)；成长期(幼崽期)=孕期×3；虚弱=孕期÷2。",
-
   "Enabled": true,
-  "_Enabled": "全局总开关。false 时繁殖系统完全不生效。",
-
   "Species": {
     "Wolf_Gray": {
-      "_说明": "灰狼。无需喂食，冬季自动发情。所有繁殖参数都在此独立设置。",
-
       "BreedingSeasons": [ "Winter" ],
-      "_BreedingSeasons": "繁殖季节。可选: Summer / Autumn / Winter / Spring。可填多个。",
-
       "CubDurationDays": 4.5,
-      "_CubDurationDays": "幼崽期持续天数(游戏天)。到期后进阶成年。",
-
       "GestationSeconds": 1800.0,
-      "_GestationSeconds": "孕期持续秒数(现实秒)。母狼交配成功后此秒数分娩。",
-
       "MatingRequiredProximitySeconds": 10.0,
-      "_MatingRequiredProximitySeconds": "交配所需相处时间(现实秒)。公母在 MateRadius 内持续相处此秒数后触发交配。",
-
       "WeaknessSeconds": 900.0,
-      "_WeaknessSeconds": "虚弱期持续秒数(现实秒)。交配后仅公狼虚弱，分娩后母狼虚弱。",
-
       "RivalChaseTime": 30.0,
-      "_RivalChaseTime": "公狼竞争时追击竞争对手的时长(现实秒)。",
-
       "MateRadius": 2.0,
-      "_MateRadius": "交配判定半径(方块)。公母在此距离内持续相处才算交配。",
-
       "SeekRadius": 20.0,
-      "_SeekRadius": "公狼寻找母狼的搜索半径(方块)。",
-
       "BirthSpawnOffset": 1.5,
-      "_BirthSpawnOffset": "分娩时幼崽在母体附近的随机偏移范围(方块)。",
-
       "CubAttackFactor": 0.3,
-      "_CubAttackFactor": "幼崽攻击力系数(与成年基准相乘)。",
-
       "AdultAttackFactor": 1.0,
-      "_AdultAttackFactor": "成年攻击力系数(基准1.0)。",
-
       "MaleAttackBonus": 1.3,
-      "_MaleAttackBonus": "公狼攻击力额外倍率(母狼为1.0)。公=Adult×MaleBonus，母=Adult×1.0。",
-
       "CubBoxScale": 0.5,
-      "_CubBoxScale": "幼崽出生时的体型缩放(相对原版)。",
-
       "AdultMaleBoxScale": 1.3,
-      "_AdultMaleBoxScale": "成年公狼体型缩放(相对原版)。",
-
       "AdultFemaleBoxScale": 1.0,
-      "_AdultFemaleBoxScale": "成年母狼体型缩放(相对原版)。",
-
       "EstrusChaseRangeMultiplier": 2.0,
-      "_EstrusChaseRangeMultiplier": "发情期仇恨范围倍率(乘到 ChaseRange factor 上)。",
-
       "CubMaleProbability": 0.5,
-      "_CubMaleProbability": "幼崽/自然生成个体的公狼概率(0~1)。0=全母，1=全公，0.5=各半。",
-
       "RequireFeeding": false,
-      "_RequireFeeding": "条件性繁衍。灰狼已关闭(false)=冬季到即自动发情，无需喂食。true=繁殖季节内还需玩家喂食 FeedItem 物品后才发情。",
       "FeedItem": "",
-      "_FeedItem": "喂食物品(方块类名)。灰狼 RequireFeeding=false 不生效，留空即可。其他开启喂食的物种：马/牛/驴/骆驼/驯鹿/鸵鸟/羊驼/角马吃高草(TallGrassBlock)，狼吃生肉(RawMeatBlock)。",
-      "FedDurationSeconds": 600.0,
-      "_FedDurationSeconds": "已喂食状态持续秒数(现实秒)。喂食后此秒数内可发情，到期需再次喂食。"
-    },
+      "FedDurationSeconds": 600.0},
 
-    "Horse_Black":   { "_说明": "黑马。温顺草食动物，春季发情，公马会为争夺母马打斗。喂高草发情。", "BreedingSeasons": [ "Spring" ], "CubDurationDays": 6, "GestationSeconds": 2400.0, "MatingRequiredProximitySeconds": 12.0, "WeaknessSeconds": 1200.0, "RivalChaseTime": 30.0, "MateRadius": 2.5, "SeekRadius": 24.0, "BirthSpawnOffset": 1.5, "CubAttackFactor": 0.2, "AdultAttackFactor": 0.5, "MaleAttackBonus": 1.2, "CubBoxScale": 0.5, "AdultMaleBoxScale": 1.1, "AdultFemaleBoxScale": 1.0, "EstrusChaseRangeMultiplier": 1.0, "CubMaleProbability": 0.5, "RequireFeeding": true, "FeedItem": "TallGrassBlock", "FedDurationSeconds": 600.0 },
-    "Horse_Bay":     { "_说明": "栗色马。温顺草食动物，春季发情，公马会为争夺母马打斗。喂高草发情。", "BreedingSeasons": [ "Spring" ], "CubDurationDays": 6, "GestationSeconds": 2400.0, "MatingRequiredProximitySeconds": 12.0, "WeaknessSeconds": 1200.0, "RivalChaseTime": 30.0, "MateRadius": 2.5, "SeekRadius": 24.0, "BirthSpawnOffset": 1.5, "CubAttackFactor": 0.2, "AdultAttackFactor": 0.5, "MaleAttackBonus": 1.2, "CubBoxScale": 0.5, "AdultMaleBoxScale": 1.1, "AdultFemaleBoxScale": 1.0, "EstrusChaseRangeMultiplier": 1.0, "CubMaleProbability": 0.5, "RequireFeeding": true, "FeedItem": "TallGrassBlock", "FedDurationSeconds": 600.0 },
-    "Horse_Chestnut":{ "_说明": "红栗色马。温顺草食动物，春季发情，公马会为争夺母马打斗。喂高草发情。", "BreedingSeasons": [ "Spring" ], "CubDurationDays": 6, "GestationSeconds": 2400.0, "MatingRequiredProximitySeconds": 12.0, "WeaknessSeconds": 1200.0, "RivalChaseTime": 30.0, "MateRadius": 2.5, "SeekRadius": 24.0, "BirthSpawnOffset": 1.5, "CubAttackFactor": 0.2, "AdultAttackFactor": 0.5, "MaleAttackBonus": 1.2, "CubBoxScale": 0.5, "AdultMaleBoxScale": 1.1, "AdultFemaleBoxScale": 1.0, "EstrusChaseRangeMultiplier": 1.0, "CubMaleProbability": 0.5, "RequireFeeding": true, "FeedItem": "TallGrassBlock", "FedDurationSeconds": 600.0 },
-    "Horse_Palomino":{ "_说明": "金色马(热带)。温顺草食动物，春季发情，公马会为争夺母马打斗。喂高草发情。", "BreedingSeasons": [ "Spring" ], "CubDurationDays": 6, "GestationSeconds": 2400.0, "MatingRequiredProximitySeconds": 12.0, "WeaknessSeconds": 1200.0, "RivalChaseTime": 30.0, "MateRadius": 2.5, "SeekRadius": 24.0, "BirthSpawnOffset": 1.5, "CubAttackFactor": 0.2, "AdultAttackFactor": 0.5, "MaleAttackBonus": 1.2, "CubBoxScale": 0.5, "AdultMaleBoxScale": 1.1, "AdultFemaleBoxScale": 1.0, "EstrusChaseRangeMultiplier": 1.0, "CubMaleProbability": 0.5, "RequireFeeding": true, "FeedItem": "TallGrassBlock", "FedDurationSeconds": 600.0 },
-    "Horse_White":   { "_说明": "白马(寒带)。温顺草食动物，春季发情，公马会为争夺母马打斗。喂高草发情。", "BreedingSeasons": [ "Spring" ], "CubDurationDays": 6, "GestationSeconds": 2400.0, "MatingRequiredProximitySeconds": 12.0, "WeaknessSeconds": 1200.0, "RivalChaseTime": 30.0, "MateRadius": 2.5, "SeekRadius": 24.0, "BirthSpawnOffset": 1.5, "CubAttackFactor": 0.2, "AdultAttackFactor": 0.5, "MaleAttackBonus": 1.2, "CubBoxScale": 0.5, "AdultMaleBoxScale": 1.1, "AdultFemaleBoxScale": 1.0, "EstrusChaseRangeMultiplier": 1.0, "CubMaleProbability": 0.5, "RequireFeeding": true, "FeedItem": "TallGrassBlock", "FedDurationSeconds": 600.0 },
+    "Horse_Black":   { "BreedingSeasons": [ "Spring" ], "CubDurationDays": 6, "GestationSeconds": 2400.0, "MatingRequiredProximitySeconds": 12.0, "WeaknessSeconds": 1200.0, "RivalChaseTime": 30.0, "MateRadius": 2.5, "SeekRadius": 24.0, "BirthSpawnOffset": 1.5, "CubAttackFactor": 0.2, "AdultAttackFactor": 0.5, "MaleAttackBonus": 1.2, "CubBoxScale": 0.5, "AdultMaleBoxScale": 1.1, "AdultFemaleBoxScale": 1.0, "EstrusChaseRangeMultiplier": 1.0, "CubMaleProbability": 0.5, "RequireFeeding": true, "FeedItem": "TallGrassBlock", "FedDurationSeconds": 600.0 },
+    "Horse_Bay":     { "BreedingSeasons": [ "Spring" ], "CubDurationDays": 6, "GestationSeconds": 2400.0, "MatingRequiredProximitySeconds": 12.0, "WeaknessSeconds": 1200.0, "RivalChaseTime": 30.0, "MateRadius": 2.5, "SeekRadius": 24.0, "BirthSpawnOffset": 1.5, "CubAttackFactor": 0.2, "AdultAttackFactor": 0.5, "MaleAttackBonus": 1.2, "CubBoxScale": 0.5, "AdultMaleBoxScale": 1.1, "AdultFemaleBoxScale": 1.0, "EstrusChaseRangeMultiplier": 1.0, "CubMaleProbability": 0.5, "RequireFeeding": true, "FeedItem": "TallGrassBlock", "FedDurationSeconds": 600.0 },
+    "Horse_Chestnut":{ "BreedingSeasons": [ "Spring" ], "CubDurationDays": 6, "GestationSeconds": 2400.0, "MatingRequiredProximitySeconds": 12.0, "WeaknessSeconds": 1200.0, "RivalChaseTime": 30.0, "MateRadius": 2.5, "SeekRadius": 24.0, "BirthSpawnOffset": 1.5, "CubAttackFactor": 0.2, "AdultAttackFactor": 0.5, "MaleAttackBonus": 1.2, "CubBoxScale": 0.5, "AdultMaleBoxScale": 1.1, "AdultFemaleBoxScale": 1.0, "EstrusChaseRangeMultiplier": 1.0, "CubMaleProbability": 0.5, "RequireFeeding": true, "FeedItem": "TallGrassBlock", "FedDurationSeconds": 600.0 },
+    "Horse_Palomino":{ "BreedingSeasons": [ "Spring" ], "CubDurationDays": 6, "GestationSeconds": 2400.0, "MatingRequiredProximitySeconds": 12.0, "WeaknessSeconds": 1200.0, "RivalChaseTime": 30.0, "MateRadius": 2.5, "SeekRadius": 24.0, "BirthSpawnOffset": 1.5, "CubAttackFactor": 0.2, "AdultAttackFactor": 0.5, "MaleAttackBonus": 1.2, "CubBoxScale": 0.5, "AdultMaleBoxScale": 1.1, "AdultFemaleBoxScale": 1.0, "EstrusChaseRangeMultiplier": 1.0, "CubMaleProbability": 0.5, "RequireFeeding": true, "FeedItem": "TallGrassBlock", "FedDurationSeconds": 600.0 },
+    "Horse_White":   { "BreedingSeasons": [ "Spring" ], "CubDurationDays": 6, "GestationSeconds": 2400.0, "MatingRequiredProximitySeconds": 12.0, "WeaknessSeconds": 1200.0, "RivalChaseTime": 30.0, "MateRadius": 2.5, "SeekRadius": 24.0, "BirthSpawnOffset": 1.5, "CubAttackFactor": 0.2, "AdultAttackFactor": 0.5, "MaleAttackBonus": 1.2, "CubBoxScale": 0.5, "AdultMaleBoxScale": 1.1, "AdultFemaleBoxScale": 1.0, "EstrusChaseRangeMultiplier": 1.0, "CubMaleProbability": 0.5, "RequireFeeding": true, "FeedItem": "TallGrassBlock", "FedDurationSeconds": 600.0 },
 
     "Cow": {
-      "_说明": "母牛。与 Bull(公牛) 通过 Aliases 互通交配。CubTemplates 按权重随机生 Cow 或 Bull。喂高草发情。",
       "BreedingSeasons": [ "Spring", "Summer" ],
       "CubDurationDays": 4.5,
       "GestationSeconds": 1800.0,
@@ -101,7 +59,6 @@
       "FedDurationSeconds": 600.0
     },
     "Bull": {
-      "_说明": "公牛。与 Cow(母牛) 通过 Aliases 互通交配。公牛不怀孕，分娩由母牛负责。喂高草发情。",
       "BreedingSeasons": [ "Spring", "Summer" ],
       "CubDurationDays": 4.5,
       "GestationSeconds": 1800.0,
@@ -128,7 +85,6 @@
     },
 
     "Donkey": {
-      "_说明": "驴。可骑可鞍，繁殖期/幼崽期禁止上鞍骑乘。喂高草发情。",
       "BreedingSeasons": [ "Spring" ],
       "CubDurationDays": 6,
       "GestationSeconds": 2400.0,
@@ -154,7 +110,6 @@
       "FedDurationSeconds": 600.0
     },
     "Camel": {
-      "_说明": "骆驼。可骑可鞍，繁殖期/幼崽期禁止上鞍骑乘。喂高草发情。",
       "BreedingSeasons": [ "Summer" ],
       "CubDurationDays": 6,
       "GestationSeconds": 2400.0,
@@ -180,7 +135,6 @@
       "FedDurationSeconds": 600.0
     },
     "Reindeer": {
-      "_说明": "驯鹿。可骑可鞍，繁殖期/幼崽期禁止上鞍骑乘。寒带生物，冬季发情。喂高草发情。",
       "BreedingSeasons": [ "Winter" ],
       "CubDurationDays": 6,
       "GestationSeconds": 2400.0,
@@ -206,7 +160,6 @@
       "FedDurationSeconds": 600.0
     },
     "Ostrich": {
-      "_说明": "鸵鸟。可骑可鞍，繁殖期/幼崽期禁止上鞍骑乘。热带生物，春季发情。喂南瓜发情。",
       "BreedingSeasons": [ "Spring" ],
       "CubDurationDays": 4.5,
       "GestationSeconds": 1800.0,
@@ -233,7 +186,6 @@
     },
 
     "Alpaca": {
-      "_说明": "羊驼。草食温顺，春秋两季发情。不可骑不可鞍，BlockInteract* 对它无实际效果但无害。喂高草发情。",
       "BreedingSeasons": [ "Spring", "Autumn" ],
       "CubDurationDays": 4.5,
       "GestationSeconds": 1800.0,
@@ -256,7 +208,6 @@
       "FedDurationSeconds": 600.0
     },
     "Gnu": {
-      "_说明": "角马。草食群居，秋季发情。不可骑不可鞍。喂高草发情。",
       "BreedingSeasons": [ "Autumn" ],
       "CubDurationDays": 6,
       "GestationSeconds": 2400.0,
@@ -279,7 +230,6 @@
       "FedDurationSeconds": 600.0
     },
     "Bison": {
-      "_说明": "野牛。草食群居，秋季发情。不可骑不可鞍，攻击性中等。喂高草发情。",
       "BreedingSeasons": [ "Autumn" ],
       "CubDurationDays": 6,
       "GestationSeconds": 2400.0,
@@ -303,7 +253,6 @@
     },
 
     "Bear": {
-      "_说明": "灰熊(基础熊模板)。大型杂食掠食者，夏季发情，攻击力高。不吃草，无需喂食，季节到即发情。",
       "BreedingSeasons": [ "Summer" ],
       "CubDurationDays": 6,
       "GestationSeconds": 2400.0,
@@ -324,7 +273,6 @@
       "RequireFeeding": false
     },
     "Bear_Brown": {
-      "_说明": "棕熊。大型杂食掠食者，夏季发情，攻击力高。继承 Bear 食性。无需喂食。",
       "BreedingSeasons": [ "Summer" ],
       "CubDurationDays": 6,
       "GestationSeconds": 2400.0,
@@ -345,7 +293,6 @@
       "RequireFeeding": false
     },
     "Bear_Black": {
-      "_说明": "黑熊。比棕熊略小，夏季发情。无需喂食。",
       "BreedingSeasons": [ "Summer" ],
       "CubDurationDays": 6,
       "GestationSeconds": 2400.0,
@@ -366,7 +313,6 @@
       "RequireFeeding": false
     },
     "Bear_Polar": {
-      "_说明": "北极熊。寒带大型掠食者，冬季发情，攻击力极高。无需喂食。",
       "BreedingSeasons": [ "Winter" ],
       "CubDurationDays": 6,
       "GestationSeconds": 2400.0,
@@ -388,7 +334,6 @@
     },
 
     "Lion": {
-      "_说明": "狮子。群居顶级掠食者，夏季发情，攻击力高。无需喂食。",
       "BreedingSeasons": [ "Summer" ],
       "CubDurationDays": 6,
       "GestationSeconds": 2400.0,
@@ -409,7 +354,6 @@
       "RequireFeeding": false
     },
     "Tiger": {
-      "_说明": "老虎。独居顶级掠食者，秋季发情，攻击力极高。无需喂食。",
       "BreedingSeasons": [ "Autumn" ],
       "CubDurationDays": 6,
       "GestationSeconds": 2400.0,
@@ -430,7 +374,6 @@
       "RequireFeeding": false
     },
     "Tiger_White": {
-      "_说明": "白虎。老虎稀有变体，秋季发情，攻击力极高。无需喂食。",
       "BreedingSeasons": [ "Autumn" ],
       "CubDurationDays": 6,
       "GestationSeconds": 2400.0,
@@ -451,7 +394,6 @@
       "RequireFeeding": false
     },
     "Leopard": {
-      "_说明": "豹子。敏捷掠食者，秋季发情，攻击力高。无需喂食。",
       "BreedingSeasons": [ "Autumn" ],
       "CubDurationDays": 6,
       "GestationSeconds": 2400.0,
@@ -472,7 +414,6 @@
       "RequireFeeding": false
     },
     "Jaguar": {
-      "_说明": "美洲豹。热带掠食者，夏季发情，攻击力高。无需喂食。",
       "BreedingSeasons": [ "Summer" ],
       "CubDurationDays": 6,
       "GestationSeconds": 2400.0,
@@ -493,7 +434,6 @@
       "RequireFeeding": false
     },
     "Hyena": {
-      "_说明": "鬣狗。群居 scavenger 掠食者，春季发情，攻击力中等。无需喂食。",
       "BreedingSeasons": [ "Spring" ],
       "CubDurationDays": 4.5,
       "GestationSeconds": 1800.0,
@@ -515,7 +455,6 @@
     },
 
     "Wildboar": {
-      "_说明": "野猪。杂食中型动物，秋季发情，攻击力中等。无需喂食。",
       "BreedingSeasons": [ "Autumn" ],
       "CubDurationDays": 4.5,
       "GestationSeconds": 1800.0,
@@ -536,7 +475,6 @@
       "RequireFeeding": false
     },
     "Moose": {
-      "_说明": "驼鹿。大型草食动物，寒带秋季发情。不可骑不可鞍。无需喂食。",
       "BreedingSeasons": [ "Autumn" ],
       "CubDurationDays": 6,
       "GestationSeconds": 2400.0,
@@ -557,7 +495,6 @@
       "RequireFeeding": false
     },
     "Rhino": {
-      "_说明": "犀牛。大型草食动物，攻击性强，夏季发情。不可骑不可鞍。无需喂食。",
       "BreedingSeasons": [ "Summer" ],
       "CubDurationDays": 6,
       "GestationSeconds": 2400.0,
@@ -578,7 +515,6 @@
       "RequireFeeding": false
     },
     "Giraffe": {
-      "_说明": "长颈鹿。超大型草食动物，夏季发情。不可骑不可鞍。无需喂食。",
       "BreedingSeasons": [ "Summer" ],
       "CubDurationDays": 6,
       "GestationSeconds": 2400.0,
@@ -599,7 +535,6 @@
       "RequireFeeding": false
     },
     "Zebra": {
-      "_说明": "斑马。群居草食动物，春季发情，警惕性高。不可骑不可鞍。无需喂食。",
       "BreedingSeasons": [ "Spring" ],
       "CubDurationDays": 6,
       "GestationSeconds": 2400.0,
@@ -620,7 +555,6 @@
       "RequireFeeding": false
     },
     "Wolf_Coyote": {
-      "_说明": "郊狼。比灰狼小，群居掠食者，冬季发情。无需喂食。",
       "BreedingSeasons": [ "Winter" ],
       "CubDurationDays": 4.5,
       "GestationSeconds": 1800.0,
@@ -642,7 +576,6 @@
     },
 
     "Cow_Black": {
-      "_说明": "黑牛(母)。Cow 的黑色变体，与 Bull* 通过 Aliases 互通交配。无需喂食。",
       "BreedingSeasons": [ "Spring", "Summer" ],
       "CubDurationDays": 4.5,
       "GestationSeconds": 1800.0,
@@ -665,7 +598,6 @@
       "RequireFeeding": false
     },
     "Cow_Brown": {
-      "_说明": "棕牛(母)。Cow 的棕色变体。无需喂食。",
       "BreedingSeasons": [ "Spring", "Summer" ],
       "CubDurationDays": 4.5,
       "GestationSeconds": 1800.0,
@@ -688,7 +620,6 @@
       "RequireFeeding": false
     },
     "Bull_Brown": {
-      "_说明": "棕公牛。Bull 的棕色变体，公牛不怀孕，分娩由母牛负责。无需喂食。",
       "BreedingSeasons": [ "Spring", "Summer" ],
       "CubDurationDays": 4.5,
       "GestationSeconds": 1800.0,
@@ -710,7 +641,6 @@
       "RequireFeeding": false
     },
     "Bull_Black": {
-      "_说明": "黑公牛。Bull 的黑色变体。无需喂食。",
       "BreedingSeasons": [ "Spring", "Summer" ],
       "CubDurationDays": 4.5,
       "GestationSeconds": 1800.0,
@@ -732,7 +662,6 @@
       "RequireFeeding": false
     },
     "Bull_White": {
-      "_说明": "白公牛。Bull 的白色变体。无需喂食。",
       "BreedingSeasons": [ "Spring", "Summer" ],
       "CubDurationDays": 4.5,
       "GestationSeconds": 1800.0,
@@ -755,7 +684,6 @@
     },
 
     "Alpaca_Shorn": {
-      "_说明": "剃毛羊驼。Alpaca 的剃毛变体，春秋两季发情。无需喂食。",
       "BreedingSeasons": [ "Spring", "Autumn" ],
       "CubDurationDays": 4.5,
       "GestationSeconds": 1800.0,
@@ -776,7 +704,6 @@
       "RequireFeeding": false
     },
     "Alpaca_White": {
-      "_说明": "白羊驼。Alpaca 的白色变体，春秋两季发情。无需喂食。",
       "BreedingSeasons": [ "Spring", "Autumn" ],
       "CubDurationDays": 4.5,
       "GestationSeconds": 1800.0,
@@ -797,7 +724,6 @@
       "RequireFeeding": false
     },
     "Cassowary": {
-      "_说明": "鹤鸵。大型不会飞的鸟，攻击性强，热带夏季发情。可骑可鞍。无需喂食。",
       "BreedingSeasons": [ "Summer" ],
       "CubDurationDays": 4.5,
       "GestationSeconds": 1800.0,
